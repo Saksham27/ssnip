@@ -21,6 +21,9 @@ public sealed record AppSettings
     public AppTheme Theme { get; init; } = AppTheme.Dark;
 
     public bool FirstRunCompleted { get; init; }
+
+    /// <summary>When the app gets focus, fetch a link found on the clipboard.</summary>
+    public bool FetchClipboardOnFocus { get; init; }
 }
 
 public interface ISettingsStore

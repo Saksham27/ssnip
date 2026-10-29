@@ -9,6 +9,9 @@ namespace SSnip.Core.Processes;
 public interface IProcessRunner
 {
     Task<ProcessResult> RunAsync(ProcessRequest request, IProgress<OutputLine>? output = null, CancellationToken cancellationToken = default);
+
+    /// <summary>The exact executable, arguments and command line <see cref="RunAsync"/> would use.</summary>
+    ProcessLaunchPlan Describe(ProcessRequest request);
 }
 
 public static class ProcessRunnerExtensions

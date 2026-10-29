@@ -1,0 +1,14 @@
+{
+  "id": "UCabcdefghijklmnopqrstuv",
+  "title": "Example Channel - Videos",
+  "channel": "Example Channel",
+  "channel_url": "https://www.example.com/channel/UCabcdefghijklmnopqrstuv",
+  "webpage_url": "https://www.example.com/@example/videos",
+  "webpage_url_basename": "videos",
+  "extractor_key": "YoutubeTab",
+  "_type": "playlist",
+  "entries": [
+    { "_type": "url", "id": "TestVid0001", "title": "First upload", "url": "https://www.example.com/watch?v=TestVid0001", "duration": 61.0 },
+    { "_type": "url", "id": "TestVid0002", "title": "Second upload", "url": "https://www.example.com/watch?v=TestVid0002", "channel": "Example Channel" }
+  ]
+}
