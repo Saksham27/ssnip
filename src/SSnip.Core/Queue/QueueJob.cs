@@ -56,6 +56,9 @@ public sealed record QueueJob
     /// <summary>Live progress while running. Not stored.</summary>
     public JobProgress? Progress { get; init; }
 
+    /// <summary>Grows with every change in this session, so a late, older copy can be ignored. Not stored.</summary>
+    public long Revision { get; init; }
+
     public bool IsLive => Options.Live is not null;
 
     public bool IsActive => State is JobState.Fetching or JobState.Downloading or JobState.PostProcessing;

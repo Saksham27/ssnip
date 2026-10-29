@@ -24,6 +24,7 @@ public sealed class JobQueue : IAsyncDisposable
     private readonly Channel<StoreWrite> _writes = Channel.CreateUnbounded<StoreWrite>(new UnboundedChannelOptions { SingleReader = true });
     private readonly Task _writer;
     private int _concurrency = JobScheduler.DefaultConcurrency;
+    private long _revision;
     private bool _loaded;
     private bool _shuttingDown;
 
@@ -35,7 +36,10 @@ public sealed class JobQueue : IAsyncDisposable
         _writer = Task.Run(WriteLoopAsync);
     }
 
-    /// <summary>A job was added or changed. Raised on whichever thread made the change.</summary>
+    /// <summary>
+    /// A job was added or changed. Raised on whichever thread made the change, so two changes can
+    /// arrive out of order; keep the one with the higher <see cref="QueueJob.Revision"/>.
+    /// </summary>
     public event EventHandler<QueueJob>? JobChanged;
 
     public event EventHandler<long>? JobRemoved;
@@ -99,13 +103,12 @@ public sealed class JobQueue : IAsyncDisposable
         {
             foreach (var job in stored)
             {
-                var current = job.IsActive ? job with { State = JobState.Queued, ResumePartial = true } : job;
-                if (current != job)
+                var current = Put(job.IsActive ? job with { State = JobState.Queued, ResumePartial = true } : job);
+                if (current.State != job.State)
                 {
                     resumed.Add(current);
                 }
 
-                _jobs[current.Id] = current;
                 if (current.State == JobState.Queued)
                 {
                     _batch.Add(current.Id);
@@ -146,7 +149,7 @@ public sealed class JobQueue : IAsyncDisposable
 
             lock (_sync)
             {
-                _jobs[stored.Id] = stored;
+                stored = Put(stored);
                 _batch.Add(stored.Id);
             }
 
@@ -228,14 +231,10 @@ public sealed class JobQueue : IAsyncDisposable
     /// <summary>Moves a job up (negative) or down in the queue.</summary>
     public void Move(long id, int offset)
     {
-        IReadOnlyList<QueueJob> moved;
+        List<QueueJob> moved;
         lock (_sync)
         {
-            moved = JobScheduler.Move(_jobs.Values, id, offset);
-            foreach (var job in moved)
-            {
-                _jobs[job.Id] = job;
-            }
+            moved = [.. JobScheduler.Move(_jobs.Values, id, offset).Select(Put)];
         }
 
         foreach (var job in moved)
@@ -325,7 +324,7 @@ public sealed class JobQueue : IAsyncDisposable
                     State = intent,
                     FinishedAt = intent == JobState.Cancelled ? _time.GetUtcNow() : job.FinishedAt,
                 };
-                _jobs[id] = changed;
+                changed = Put(changed);
             }
         }
 
@@ -356,7 +355,7 @@ public sealed class JobQueue : IAsyncDisposable
                     FinishedAt = null,
                     ResumePartial = job.State != JobState.Done && job.ResumePartial,
                 };
-                _jobs[id] = changed;
+                changed = Put(changed);
                 _batch.Add(id);
             }
         }
@@ -391,7 +390,7 @@ public sealed class JobQueue : IAsyncDisposable
                     Progress = new JobProgress(DownloadStage.Starting),
                 };
                 var run = new Run();
-                _jobs[job.Id] = running;
+                running = Put(running);
                 _runs[job.Id] = run;
                 started.Add((running, run));
             }
@@ -449,7 +448,7 @@ public sealed class JobQueue : IAsyncDisposable
             };
 
             store = next.State != job.State || next.Title != job.Title || next.CommandLine != job.CommandLine || next.LogPath != job.LogPath;
-            _jobs[id] = next;
+            next = Put(next);
         }
 
         if (store)
@@ -490,7 +489,7 @@ public sealed class JobQueue : IAsyncDisposable
                         ResumePartial = outcome.State != JobState.Done,
                         FinishedAt = _time.GetUtcNow(),
                     };
-                _jobs[id] = next;
+                next = Put(next);
             }
         }
 
@@ -517,6 +516,14 @@ public sealed class JobQueue : IAsyncDisposable
         }
 
         Finished?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Stores a new version of a job, stamped with the next revision. Call inside the lock.</summary>
+    private QueueJob Put(QueueJob job)
+    {
+        var stamped = job with { Revision = ++_revision };
+        _jobs[stamped.Id] = stamped;
+        return stamped;
     }
 
     private void Save(QueueJob job) => _writes.Writer.TryWrite(new StoreWrite.Update(job));

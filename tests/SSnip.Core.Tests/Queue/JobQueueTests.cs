@@ -381,6 +381,20 @@ public sealed class JobQueueTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Every_change_has_a_higher_revision()
+    {
+        var revisions = new System.Collections.Concurrent.ConcurrentBag<long>();
+        _queue.JobChanged += (_, job) => revisions.Add(job.Revision);
+        await StartWithAsync("a");
+        _executor.Finish("a");
+
+        await Eventually(() => Get("a").State == JobState.Done);
+        revisions.Count.ShouldBeGreaterThanOrEqualTo(3);
+        revisions.Distinct().Count().ShouldBe(revisions.Count);
+        Get("a").Revision.ShouldBe(revisions.Max());
+    }
+
+    [Fact]
     public async Task Pause_all_and_resume_all()
     {
         await StartWithAsync("a", "b", "c");
