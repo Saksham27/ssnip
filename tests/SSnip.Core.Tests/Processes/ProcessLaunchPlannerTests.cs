@@ -13,15 +13,15 @@ public class ProcessLaunchPlannerTests
     {
         var plan = ProcessLaunchPlanner.Plan(new ProcessRequest(ExternalTool.YtDlp, ["--version"]), Paths, null);
 
-        plan.Arguments.ShouldBe(["--ignore-config", "--js-runtimes", @"deno:C:\Data\SSnip\bin\deno.exe", "--version"]);
+        plan.Arguments.ShouldBe(["--ignore-config", "--encoding", "utf-8", "--js-runtimes", @"deno:C:\Data\SSnip\bin\deno.exe", "--version"]);
     }
 
     [Fact]
     public void YtDlp_flags_the_caller_already_set_are_not_added_twice()
     {
-        var plan = ProcessLaunchPlanner.Plan(new ProcessRequest(ExternalTool.YtDlp, ["--ignore-config", "--js-runtimes", "node", "-J"]), Paths, null);
+        var plan = ProcessLaunchPlanner.Plan(new ProcessRequest(ExternalTool.YtDlp, ["--ignore-config", "--encoding", "cp1252", "--js-runtimes", "node", "-J"]), Paths, null);
 
-        plan.Arguments.ShouldBe(["--ignore-config", "--js-runtimes", "node", "-J"]);
+        plan.Arguments.ShouldBe(["--ignore-config", "--encoding", "cp1252", "--js-runtimes", "node", "-J"]);
     }
 
     [Theory]
@@ -66,7 +66,7 @@ public class ProcessLaunchPlannerTests
 
         var plan = ProcessLaunchPlanner.Plan(new ProcessRequest(ExternalTool.YtDlp, arguments), Paths, null);
 
-        plan.Arguments.Skip(3).ShouldBe(arguments);
+        plan.Arguments.Skip(5).ShouldBe(arguments);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class ProcessLaunchPlannerTests
     {
         var plan = ProcessLaunchPlanner.Plan(new ProcessRequest(ExternalTool.YtDlp, ["-o", "My Clip.mp4"]), Paths, null);
 
-        plan.CommandLine.ShouldBe(@"C:\Data\SSnip\bin\yt-dlp.exe --ignore-config --js-runtimes deno:C:\Data\SSnip\bin\deno.exe -o ""My Clip.mp4""");
+        plan.CommandLine.ShouldBe(@"C:\Data\SSnip\bin\yt-dlp.exe --ignore-config --encoding utf-8 --js-runtimes deno:C:\Data\SSnip\bin\deno.exe -o ""My Clip.mp4""");
     }
 
     [Fact]
