@@ -442,11 +442,11 @@ Solution and projects, DI host, Serilog, settings file, `ProcessRunner`, depende
 
 URL input, `-J` info panel, presets, advanced format table, `YtDlpArgsBuilder`, progress parsing, cancel, Show command, open folder.
 
-- [ ] A public YouTube video downloads at Editor-safe 1080p with a live progress bar, speed and ETA
-- [ ] Advanced mode lists all formats and downloads a chosen video + audio pair
-- [ ] Cancel stops yt-dlp and ffmpeg and leaves no zombie processes
-- [ ] A video with a Hindi title saves with the correct filename
-- [ ] Show command displays the exact arguments used
+- [x] A public YouTube video downloads at Editor-safe 1080p with a live progress bar, speed and ETA
+- [x] Advanced mode lists all formats and downloads a chosen video + audio pair
+- [x] Cancel stops yt-dlp and ffmpeg and leaves no zombie processes
+- [x] A video with a Hindi title saves with the correct filename
+- [x] Show command displays the exact arguments used
 
 ### Phase 2: Queue, bulk and extras
 
