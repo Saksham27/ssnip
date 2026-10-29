@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The solution is added in Phase 0; until then the build steps are skipped.
+      - name: Set up .NET 10
+        if: hashFiles('SSnip.sln') != ''
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        if: hashFiles('SSnip.sln') != ''
+        run: dotnet restore
+
+      - name: Build
+        if: hashFiles('SSnip.sln') != ''
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Unit tests
+        if: hashFiles('SSnip.sln') != ''
+        run: dotnet test --configuration Release --no-build --filter "Category!=Integration"

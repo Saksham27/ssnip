@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in SSnip does not work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **⚠️ Never paste cookies, tokens, passwords or account details in this issue. Remove them from logs before attaching.**
+  - type: checkboxes
+    id: updated
+    attributes:
+      label: Before you report
+      options:
+        - label: I updated yt-dlp to the latest version and the problem still happens
+          required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: SSnip version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: ytdlp-version
+    attributes:
+      label: yt-dlp version
+      placeholder: "2026.10.01"
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Site
+      description: Which site the problem happens on (for example YouTube, Vimeo, local file)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Paste a link
+        2. Choose the Editor-safe preset
+        3. Press Download
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: Use "Copy log" on the job. Remove any cookies, tokens or personal paths first.
+      render: text

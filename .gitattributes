@@ -1,0 +1,14 @@
+# Normalize line endings
+* text=auto
+
+# Visual Studio solution files must use CRLF
+*.sln text eol=crlf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.webp binary
