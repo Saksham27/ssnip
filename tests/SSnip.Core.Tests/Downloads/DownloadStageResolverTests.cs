@@ -18,6 +18,20 @@ public class DownloadStageResolverTests
     public void Uses_the_format_suffix(string fileName, DownloadStage expected) =>
         DownloadStageResolver.FromFileName(fileName, Video).ShouldBe(expected);
 
+    [Theory]
+    [InlineData("avc1.640028", null, DownloadStage.Video)]
+    [InlineData(null, "opus", DownloadStage.Audio)]
+    [InlineData("avc1.42001E", "mp4a.40.2", DownloadStage.Downloading)]
+    public void Codecs_decide_without_media_info(string? video, string? audio, DownloadStage expected) =>
+        DownloadStageResolver.FromProgress(Progress(@"E:\raw\Title [TestVid0001].f251.webm", video, audio)).ShouldBe(expected);
+
+    [Fact]
+    public void Falls_back_to_the_file_name_without_codecs() =>
+        DownloadStageResolver.FromProgress(Progress(@"E:\raw\Title [TestVid0001].f140.m4a", null, null)).ShouldBe(DownloadStage.Audio);
+
+    private static DownloadProgressEvent Progress(string fileName, string? video, string? audio) =>
+        new("downloading", 1, 10, false, null, null, fileName, null, null, null, video, audio);
+
     [Fact]
     public void Unknown_format_with_audio_extension_is_audio() =>
         DownloadStageResolver.FromFileName(@"E:\raw\x.f999.m4a", Video).ShouldBe(DownloadStage.Audio);

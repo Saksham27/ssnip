@@ -3,7 +3,7 @@ using SSnip.Core.Media;
 
 namespace SSnip.Core.Downloads;
 
-/// <summary>Job states from the plan. Phase 1 runs one job at a time; the queue arrives in Phase 2.</summary>
+/// <summary>Job states from the plan.</summary>
 public enum JobState
 {
     Queued,
@@ -32,6 +32,22 @@ public enum DownloadStage
 
 public static partial class DownloadStageResolver
 {
+    /// <summary>
+    /// The stage for a progress line: the codecs of the format being downloaded say whether it is the
+    /// video or the audio part; without them, the file name decides.
+    /// </summary>
+    public static DownloadStage FromProgress(DownloadProgressEvent progress, MediaInfo? info = null)
+    {
+        ArgumentNullException.ThrowIfNull(progress);
+        return (progress.VideoCodec, progress.AudioCodec) switch
+        {
+            (not null, null) => DownloadStage.Video,
+            (null, not null) => DownloadStage.Audio,
+            (not null, not null) => DownloadStage.Downloading,
+            _ => FromFileName(progress.FileName, info),
+        };
+    }
+
     /// <summary>
     /// The stage for a progress line. Split video + audio downloads name each part with a format
     /// suffix (<c>Title [id].f137.mp4</c>), which tells which stream is downloading.
