@@ -1,0 +1,100 @@
+<UserControl
+    x:Class="SSnip.App.Controls.ToolList"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:SSnip.App.ViewModels"
+    x:Name="Root"
+    d:DataContext="{d:DesignInstance vm:ToolsViewModel}"
+    mc:Ignorable="d">
+    <!--  The dependency manager list: one card per tool with version, path, progress and actions.  -->
+    <ItemsControl ItemsSource="{Binding Tools}">
+        <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:ToolRowViewModel}">
+                <ui:Card Margin="0,0,0,8" Padding="16,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:SymbolIcon Grid.Column="0" VerticalAlignment="Center" FontSize="20">
+                            <ui:SymbolIcon.Style>
+                                <Style TargetType="ui:SymbolIcon">
+                                    <Setter Property="Symbol" Value="Warning24" />
+                                    <Setter Property="Foreground" Value="{StaticResource UnhealthyBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsHealthy}" Value="True">
+                                            <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                                            <Setter Property="Foreground" Value="{StaticResource HealthyBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsWorking}" Value="True">
+                                            <Setter Property="Symbol" Value="ArrowSync24" />
+                                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ui:SymbolIcon.Style>
+                        </ui:SymbolIcon>
+
+                        <StackPanel Grid.Column="1" Margin="8,0,16,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontSize="15" FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                                <TextBlock
+                                    Margin="12,1,0,0"
+                                    VerticalAlignment="Center"
+                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                    Text="{Binding StatusText}"
+                                    TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <TextBlock
+                                Margin="0,2,0,0"
+                                FontSize="12"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                Text="{Binding Path}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip="{Binding Path}" />
+                            <ProgressBar
+                                Margin="0,6,0,0"
+                                IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                Maximum="100"
+                                Value="{Binding Progress}">
+                                <ProgressBar.Style>
+                                    <Style BasedOn="{StaticResource {x:Type ProgressBar}}" TargetType="ProgressBar">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding State}" Value="{x:Static vm:ToolRowState.Working}">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ProgressBar.Style>
+                            </ProgressBar>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal">
+                            <ui:Button
+                                Margin="0,0,8,0"
+                                Appearance="Secondary"
+                                Command="{Binding DataContext.ImportCommand, ElementName=Root}"
+                                CommandParameter="{Binding}"
+                                Content="Use existing…"
+                                IsEnabled="{Binding IsWorking, Converter={StaticResource InverseBooleanConverter}}"
+                                ToolTip="Copy a copy you already have into SSnip's bin folder" />
+                            <ui:Button
+                                Appearance="Secondary"
+                                Command="{Binding DataContext.UpdateCommand, ElementName=Root}"
+                                CommandParameter="{Binding}"
+                                Content="Update"
+                                Icon="{ui:SymbolIcon ArrowClockwise24}"
+                                IsEnabled="{Binding IsWorking, Converter={StaticResource InverseBooleanConverter}}" />
+                        </StackPanel>
+                    </Grid>
+                </ui:Card>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

@@ -1,0 +1,23 @@
+﻿<Application
+    x:Class="SSnip.App.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="clr-namespace:SSnip.App.Converters"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="HealthyBrush" Color="#FF6CCB5F" />
+            <SolidColorBrush x:Key="UnhealthyBrush" Color="#FFFF99A4" />
+            <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+            <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+            <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
