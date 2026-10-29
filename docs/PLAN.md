@@ -422,21 +422,21 @@ Claude Code creates the public repo on the owner's personal account with every f
 8. Apply settings: `gh repo edit --enable-wiki=false --enable-projects=false --enable-discussions --add-topic yt-dlp,ffmpeg,wpf,dotnet,csharp,windows,video-clipping,content-creation`, then enable private vulnerability reporting with `gh api -X PUT repos/<username>/ssnip/private-vulnerability-reporting`.
 9. After the first green CI run in Phase 0, add branch protection on `main` through `gh api` with the rules in Repository settings.
 
-- [ ] Repo is public at `github.com/<username>/ssnip` with the description and topics
-- [ ] GitHub shows "MIT license" in the repo sidebar
-- [ ] Every file in the Repository files table exists and `git status` is clean
-- [ ] `git check-ignore -v cookies.txt test.db clip.mp4` reports all three as ignored
-- [ ] No token, password, cookie value or personal file path appears in any committed file
-- [ ] README contains the disclaimer word for word
+- [x] Repo is public at `github.com/<username>/ssnip` with the description and topics
+- [x] GitHub shows "MIT license" in the repo sidebar
+- [x] Every file in the Repository files table exists and `git status` is clean
+- [x] `git check-ignore -v cookies.txt test.db clip.mp4` reports all three as ignored
+- [x] No token, password, cookie value or personal file path appears in any committed file
+- [x] README contains the disclaimer word for word
 
 ### Phase 0: Skeleton and tools
 
 Solution and projects, DI host, Serilog, settings file, `ProcessRunner`, dependency manager, first-run wizard, navigation shell with empty screens.
 
-- [ ] App starts, shows the navigation rail and status bar in dark theme
-- [ ] First run downloads yt-dlp, ffmpeg, ffprobe and Deno, and shows their versions
-- [ ] `ProcessRunner` runs `yt-dlp --version` and streams output; cancel kills it
-- [ ] CI passes on GitHub, branch protection is on for main, and the unit test project runs with `dotnet test`
+- [x] App starts, shows the navigation rail and status bar in dark theme
+- [x] First run downloads yt-dlp, ffmpeg, ffprobe and Deno, and shows their versions
+- [x] `ProcessRunner` runs `yt-dlp --version` and streams output; cancel kills it
+- [x] CI passes on GitHub, branch protection is on for main, and the unit test project runs with `dotnet test`
 
 ### Phase 1: Fetch and single download
 
