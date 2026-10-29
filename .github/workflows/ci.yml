@@ -16,7 +16,7 @@ jobs:
       # The solution is added in Phase 0; until then the build steps are skipped.
       - name: Set up .NET 10
         if: hashFiles('SSnip.sln') != ''
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
