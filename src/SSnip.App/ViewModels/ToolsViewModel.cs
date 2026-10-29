@@ -120,6 +120,8 @@ public sealed partial class ToolsViewModel : ObservableObject
     [RelayCommand]
     private void OpenBinFolder() => _dialogs.OpenInExplorer(BinFolder);
 
+    public void ReportError(string message) => ErrorMessage = message;
+
     public async Task<bool> CheckJavaScriptRuntimeAsync()
     {
         try

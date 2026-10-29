@@ -17,7 +17,7 @@ public sealed partial class ProcessRunner(AppPaths paths, ILogger<ProcessRunner>
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var plan = ProcessLaunchPlanner.Plan(request, paths, Environment.GetEnvironmentVariable("PATH"));
+        var plan = Describe(request);
         if (!File.Exists(plan.ExecutablePath))
         {
             throw new FileNotFoundException($"{Path.GetFileName(plan.ExecutablePath)} is not installed.", plan.ExecutablePath);
@@ -52,6 +52,9 @@ public sealed partial class ProcessRunner(AppPaths paths, ILogger<ProcessRunner>
             throw;
         }
     }
+
+    public ProcessLaunchPlan Describe(ProcessRequest request) =>
+        ProcessLaunchPlanner.Plan(request, paths, Environment.GetEnvironmentVariable("PATH"));
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Starting {CommandLine}")]
     private partial void LogStarting(string commandLine);

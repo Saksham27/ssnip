@@ -16,6 +16,7 @@
             <SolidColorBrush x:Key="UnhealthyBrush" Color="#FFFF99A4" />
             <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
             <converters:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <converters:IsNotNullToVisibilityConverter x:Key="IsNotNullToVisibilityConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         </ResourceDictionary>

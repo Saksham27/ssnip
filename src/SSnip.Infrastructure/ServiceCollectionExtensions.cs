@@ -2,9 +2,11 @@ using System.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SSnip.Core;
+using SSnip.Core.Downloads;
 using SSnip.Core.Processes;
 using SSnip.Core.Settings;
 using SSnip.Core.Tools;
+using SSnip.Infrastructure.Downloads;
 using SSnip.Infrastructure.Processes;
 using SSnip.Infrastructure.Settings;
 using SSnip.Infrastructure.Tools;
@@ -24,6 +26,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(paths);
         services.AddSingleton<IProcessRunner, ProcessRunner>();
+        services.AddSingleton<IYtDlpService, YtDlpService>();
         services.AddSingleton<ISettingsStore, JsonSettingsStore>();
         services.AddSingleton<IDependencyManager>(sp => new DependencyManager(
             paths,

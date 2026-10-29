@@ -94,7 +94,7 @@
                     <TextBlock
                         Margin="0,0,0,20"
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                        Text="Each tool runs and reports its version, and yt-dlp confirms it can use Deno as its JavaScript runtime."
+                        Text="Each tool runs and reports its version, yt-dlp confirms it can use Deno as its JavaScript runtime, and a 5-second test download proves everything works together."
                         TextWrapping="Wrap" />
 
                     <ItemsControl ItemsSource="{Binding Tools.Tools}">
@@ -113,6 +113,12 @@
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Tools.JavaScriptRuntime, TargetNullValue='Not found'}" />
                             <TextBlock FontWeight="SemiBold" Text="yt-dlp JavaScript runtime" />
+                        </DockPanel>
+                    </ui:Card>
+                    <ui:Card Margin="0,0,0,6" Padding="16,10">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding TestDownloadText}" />
+                            <TextBlock FontWeight="SemiBold" Text="5-second test download" />
                         </DockPanel>
                     </ui:Card>
 

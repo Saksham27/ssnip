@@ -12,6 +12,8 @@ public static class ProcessLaunchPlanner
 
     public const string JsRuntimesFlag = "--js-runtimes";
 
+    public const string EncodingFlag = "--encoding";
+
     public static ProcessLaunchPlan Plan(ProcessRequest request, AppPaths paths, string? inheritedPath)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -41,6 +43,14 @@ public static class ProcessLaunchPlanner
         if (!requested.Contains(IgnoreConfigFlag))
         {
             arguments.Add(IgnoreConfigFlag);
+        }
+
+        // When its output is piped, yt-dlp ignores PYTHONIOENCODING and prints in the ANSI code page,
+        // silently dropping Hindi and other characters from titles, JSON and file paths.
+        if (!requested.Contains(EncodingFlag))
+        {
+            arguments.Add(EncodingFlag);
+            arguments.Add("utf-8");
         }
 
         // YouTube needs a JavaScript runtime; point yt-dlp at our Deno instead of relying on PATH lookup.
