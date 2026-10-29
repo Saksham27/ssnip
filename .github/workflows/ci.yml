@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The solution is added in Phase 0; until then the build steps are skipped.
       - name: Set up .NET 10
