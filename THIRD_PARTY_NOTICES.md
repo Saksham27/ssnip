@@ -9,7 +9,7 @@ These tools are downloaded by SSnip on first run from their official sources int
 | Name | Version | License | Project URL | How it is used |
 | --- | --- | --- | --- | --- |
 | yt-dlp | Latest release at first run | Unlicense | https://github.com/yt-dlp/yt-dlp | Downloaded at runtime; fetches info, formats, subtitles and downloads |
-| FFmpeg / ffprobe | Current Windows build at first run | LGPL 2.1+ or GPL, depending on the build | https://ffmpeg.org/ | Downloaded at runtime; cuts, converts and probes media |
+| FFmpeg / ffprobe | Current gyan.dev "release essentials" build at first run | GPL v3 (this build includes libx264); FFmpeg itself is LGPL 2.1+ | https://ffmpeg.org/ (build: https://www.gyan.dev/ffmpeg/builds/) | Downloaded at runtime; cuts, converts and probes media |
 | Deno | Latest release at first run | MIT | https://deno.com/ | Downloaded at runtime; JavaScript runtime used by yt-dlp |
 
 If a release ever bundles FFmpeg, it will use an LGPL build and ship its license and a source link with it.
@@ -22,15 +22,20 @@ Versions are filled in when each package is added to the solution.
 | --- | --- | --- | --- | --- |
 | LibVLCSharp.WPF | Not yet added | LGPL 2.1+ | https://github.com/videolan/libvlcsharp | NuGet, dynamically linked; preview player |
 | VideoLAN.LibVLC.Windows | Not yet added | LGPL 2.1+ | https://www.videolan.org/vlc/libvlc.html | NuGet, dynamically linked; native player library |
-| CommunityToolkit.Mvvm | Not yet added | MIT | https://github.com/CommunityToolkit/dotnet | NuGet; MVVM source generators |
-| WPF-UI | Not yet added | MIT | https://github.com/lepoco/wpfui | NuGet; Fluent styling |
-| Microsoft.Extensions.Hosting | Not yet added | MIT | https://github.com/dotnet/runtime | NuGet; DI, options, logging host |
-| CliWrap | Not yet added | MIT | https://github.com/Tyrrrz/CliWrap | NuGet; process execution |
+| CommunityToolkit.Mvvm | 8.4.2 | MIT | https://github.com/CommunityToolkit/dotnet | NuGet; MVVM source generators |
+| WPF-UI (with Wpf.Ui.Abstractions) | 4.3.0 | MIT | https://github.com/lepoco/wpfui | NuGet; Fluent styling and navigation |
+| Microsoft.Extensions.Hosting | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; DI, options, logging host |
+| Microsoft.Extensions.DependencyInjection.Abstractions | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; service registration in Infrastructure |
+| Microsoft.Extensions.Logging.Abstractions | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; logging interfaces in Infrastructure |
+| CliWrap | 3.10.5 | MIT | https://github.com/Tyrrrz/CliWrap | NuGet; process execution |
 | Microsoft.EntityFrameworkCore.Sqlite | Not yet added | MIT | https://github.com/dotnet/efcore | NuGet; SQLite storage |
-| Serilog | Not yet added | Apache 2.0 | https://github.com/serilog/serilog | NuGet; logging |
+| Serilog | 4.4.0 | Apache 2.0 | https://github.com/serilog/serilog | NuGet; logging |
+| Serilog.Extensions.Hosting | 10.0.0 | Apache 2.0 | https://github.com/serilog/serilog-extensions-hosting | NuGet; plugs Serilog into the host |
+| Serilog.Sinks.File | 7.0.0 | Apache 2.0 | https://github.com/serilog/serilog-sinks-file | NuGet; rolling log files |
 | Velopack | Not yet added | MIT | https://github.com/velopack/velopack | NuGet; installer and self-update |
-| xUnit | Not yet added | Apache 2.0 | https://github.com/xunit/xunit | NuGet, tests only |
-| Shouldly | Not yet added | BSD 3-Clause | https://github.com/shouldly/shouldly | NuGet, tests only |
+| xUnit (xunit, xunit.runner.visualstudio) | 2.9.3, 3.1.4 | Apache 2.0 | https://github.com/xunit/xunit | NuGet, tests only |
+| Microsoft.NET.Test.Sdk | 17.14.1 | MIT | https://github.com/microsoft/vstest | NuGet, tests only |
+| Shouldly | 4.3.0 | BSD 3-Clause | https://github.com/shouldly/shouldly | NuGet, tests only |
 
 ## License texts
 

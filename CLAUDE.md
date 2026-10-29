@@ -16,7 +16,11 @@ WPF + WPF-UI (dark Fluent theme), CommunityToolkit.Mvvm, Microsoft.Extensions.Ho
 
 ## Conventions
 
-- Never reimplement yt-dlp or FFmpeg features; every external call goes through `ProcessRunner` (bin folder on PATH, `PYTHONIOENCODING=utf-8`, `--ignore-config`, kill whole process tree on cancel).
+- Never reimplement yt-dlp or FFmpeg features; every external call goes through `ProcessRunner` (bin folder on PATH, `PYTHONIOENCODING=utf-8`, `--ignore-config`, `--js-runtimes deno:<bin>\deno.exe`, kill whole process tree on cancel). The pure rules live in `ProcessLaunchPlanner`.
+- WPF projects drop `System.IO` and `System.Net.Http` from implicit usings; add them explicitly in `SSnip.App`.
+- `Page`s in the navigation frame do not inherit the window foreground; set `Foreground="{DynamicResource TextFillColorPrimaryBrush}"`.
+- Integration tests: `dotnet test --filter Category=Integration` (downloads tools into `%TEMP%\SSnip.IntegrationTests` on first run).
+- Never add Claude attribution (Co-Authored-By trailers or "Generated with Claude Code") to commits or PRs.
 - Build command lines as argument lists, never concatenated strings.
 - All process calls are async, cancellable and report progress; never block the UI thread.
 - Write unit tests for the args builder and every parser alongside the code.
