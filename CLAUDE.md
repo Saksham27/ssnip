@@ -17,7 +17,11 @@ WPF + WPF-UI (dark Fluent theme), CommunityToolkit.Mvvm, Microsoft.Extensions.Ho
 ## Conventions
 
 - Never reimplement yt-dlp or FFmpeg features; every external call goes through `ProcessRunner` (bin folder on PATH, `PYTHONIOENCODING=utf-8`, `--ignore-config`, `--js-runtimes deno:<bin>\deno.exe`, kill whole process tree on cancel). The pure rules live in `ProcessLaunchPlanner`.
+- yt-dlp ignores `PYTHONIOENCODING` when piped and drops non-ANSI characters (Hindi titles, paths); the planner always passes `--encoding utf-8`.
+- yt-dlp skips an existing file quietly (path printed, no real progress); `DownloadResult.WasSkipped` reports it. Section downloads are never skipped.
+- Unit-test fixtures in `tests/SSnip.Core.Tests/Fixtures` are hand-written: fake ids and example.com only, never real `-J` output (it holds signed URLs with the user's IP).
 - WPF projects drop `System.IO` and `System.Net.Http` from implicit usings; add them explicitly in `SSnip.App`.
+- Bind read-only view-model properties to `ProgressBar.Value` and similar two-way-by-default properties with `Mode=OneWay`.
 - `Page`s in the navigation frame do not inherit the window foreground; set `Foreground="{DynamicResource TextFillColorPrimaryBrush}"`.
 - Integration tests: `dotnet test --filter Category=Integration` (downloads tools into `%TEMP%\SSnip.IntegrationTests` on first run).
 - Never add Claude attribution (Co-Authored-By trailers or "Generated with Claude Code") to commits or PRs.
