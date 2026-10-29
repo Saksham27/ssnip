@@ -12,6 +12,13 @@ public interface IDialogService
     string? PickExecutable(string title, string fileName);
 
     void OpenInExplorer(string path);
+
+    /// <summary>Opens Explorer with the file selected.</summary>
+    void RevealInExplorer(string filePath);
+
+    string? GetClipboardText();
+
+    void SetClipboardText(string text);
 }
 
 public sealed class DialogService : IDialogService
@@ -44,5 +51,41 @@ public sealed class DialogService : IDialogService
     {
         Directory.CreateDirectory(path);
         Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { path }, UseShellExecute = false });
+    }
+
+    public void RevealInExplorer(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            OpenInExplorer(Path.GetDirectoryName(filePath) ?? filePath);
+            return;
+        }
+
+        // explorer.exe parses /select itself, so the path is quoted into one argument string.
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = false });
+    }
+
+    public string? GetClipboardText()
+    {
+        try
+        {
+            return System.Windows.Clipboard.ContainsText() ? System.Windows.Clipboard.GetText() : null;
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Another app holds the clipboard open.
+            return null;
+        }
+    }
+
+    public void SetClipboardText(string text)
+    {
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+        }
     }
 }

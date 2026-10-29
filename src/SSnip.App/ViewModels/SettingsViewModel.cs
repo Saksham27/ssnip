@@ -20,7 +20,19 @@ public sealed partial class SettingsViewModel : ObservableObject
         _paths = paths;
         Tools = tools;
         LibraryRoot = settings.Current.LibraryRoot;
+        FetchClipboardOnFocus = settings.Current.FetchClipboardOnFocus;
         settings.Changed += (_, s) => LibraryRoot = s.LibraryRoot;
+    }
+
+    [ObservableProperty]
+    public partial bool FetchClipboardOnFocus { get; set; }
+
+    partial void OnFetchClipboardOnFocusChanged(bool value)
+    {
+        if (_settings.Current.FetchClipboardOnFocus != value)
+        {
+            _ = _settings.SaveAsync(_settings.Current with { FetchClipboardOnFocus = value });
+        }
     }
 
     public ToolsViewModel Tools { get; }

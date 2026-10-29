@@ -12,5 +12,11 @@ public partial class MainWindow
         InitializeComponent();
         RootNavigation.SetPageProviderService(pageProvider);
         Loaded += (_, _) => RootNavigation.Navigate(typeof(HomePage));
+
+        // "Fetch the link on the clipboard when the app gets focus" (off unless enabled in Settings).
+        Activated += async (_, _) =>
+        {
+            await viewModel.Home.OnAppActivatedAsync();
+        };
     }
 }

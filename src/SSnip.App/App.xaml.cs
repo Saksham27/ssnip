@@ -94,6 +94,7 @@ public partial class App : Application
         builder.Services.AddSingleton<PageProvider>();
 
         builder.Services.AddSingleton<ToolsViewModel>();
+        builder.Services.AddSingleton<HomeViewModel>();
         builder.Services.AddSingleton<MainWindowViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();
         builder.Services.AddTransient<FirstRunViewModel>();
