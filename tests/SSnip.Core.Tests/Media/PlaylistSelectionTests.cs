@@ -71,6 +71,23 @@ public class PlaylistSelectionTests
         ChannelTabs.UrlFor(url, tab).ShouldBe(expected);
 
     [Theory]
+    [InlineData("https://www.youtube.com/@JemmaLive", null)]
+    [InlineData("https://www.youtube.com/@JemmaLive/featured", null)]
+    [InlineData("https://www.youtube.com/@JemmaLive/videos", ChannelTab.Videos)]
+    [InlineData("https://www.youtube.com/@JemmaLive/shorts/", ChannelTab.Shorts)]
+    [InlineData("https://www.youtube.com/@JemmaLive/streams", ChannelTab.Live)]
+    [InlineData("https://www.youtube.com/watch?v=TestVid0001", null)]
+    public void Tab_of_a_channel_link(string url, ChannelTab? expected) =>
+        ChannelTabs.TabOf(url).ShouldBe(expected);
+
+    [Fact]
+    public void Only_channel_links_are_channels()
+    {
+        ChannelTabs.IsChannel("https://www.youtube.com/@JemmaLive").ShouldBeTrue();
+        ChannelTabs.IsChannel("https://www.youtube.com/playlist?list=PL0000").ShouldBeFalse();
+    }
+
+    [Theory]
     [InlineData("https://www.youtube.com/playlist?list=PL0000")]
     [InlineData("https://www.youtube.com/watch?v=TestVid0001")]
     [InlineData("https://www.example.com/@name")]

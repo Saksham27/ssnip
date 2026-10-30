@@ -191,6 +191,11 @@ public class YtDlpArgsBuilderExtrasTests
     }
 
     [Fact]
+    public void Live_streams_skip_sponsorblock() =>
+        Build(Options() with { Live = new LiveOptions(false), SponsorBlock = SponsorBlockOptions.FootageDefault })
+            .ShouldNotContain(a => a.StartsWith("--sponsorblock", StringComparison.Ordinal));
+
+    [Fact]
     public void Live_from_now_has_no_extra_flags()
     {
         var args = Build(Options() with { Live = new LiveOptions(FromStart: false) });
@@ -202,7 +207,7 @@ public class YtDlpArgsBuilderExtrasTests
     [Fact]
     public void Extras_stay_before_the_url()
     {
-        var args = Build(Options() with { Subtitles = new SubtitleOptions(["en"]), SponsorBlock = SponsorBlockOptions.FootageDefault, Live = new LiveOptions(true) });
+        var args = Build(Options() with { Subtitles = new SubtitleOptions(["en"]), SponsorBlock = SponsorBlockOptions.FootageDefault, DateAfter = new DateOnly(2025, 1, 1) });
 
         args[^2].ShouldBe("--");
         args[^1].ShouldBe(Url);

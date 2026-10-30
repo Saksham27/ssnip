@@ -282,6 +282,20 @@ public sealed class JobQueueTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Loading_announces_every_stored_job()
+    {
+        await _store.AddAsync(new QueueJob { Title = "done", Options = Job("done").Options, State = JobState.Done });
+        await _store.AddAsync(new QueueJob { Title = "waiting", Options = Job("waiting").Options, State = JobState.Paused });
+        var announced = new System.Collections.Concurrent.ConcurrentBag<string>();
+        _queue.JobChanged += (_, job) => announced.Add(job.Options.Url);
+
+        await _queue.LoadAsync();
+
+        announced.ShouldContain("done");
+        announced.ShouldContain("waiting");
+    }
+
+    [Fact]
     public async Task Jobs_left_running_by_a_crash_resume_on_load()
     {
         await _store.AddAsync(new QueueJob { Title = "x", Options = Job("x").Options, State = JobState.Downloading });

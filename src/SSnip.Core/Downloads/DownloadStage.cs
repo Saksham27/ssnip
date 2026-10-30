@@ -28,6 +28,9 @@ public enum DownloadStage
     Converting,
     PostProcessing,
     Finishing,
+
+    /// <summary>A live stream is being recorded.</summary>
+    Recording,
 }
 
 public static partial class DownloadStageResolver
@@ -95,6 +98,7 @@ public static partial class DownloadStageResolver
         DownloadStage.Converting => "Converting",
         DownloadStage.PostProcessing => "Post-processing",
         DownloadStage.Finishing => "Finishing",
+        DownloadStage.Recording => "Recording",
         _ => stage.ToString(),
     };
 

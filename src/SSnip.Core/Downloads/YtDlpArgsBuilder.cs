@@ -190,7 +190,8 @@ public static partial class YtDlpArgsBuilder
 
     private static void AddSponsorBlock(List<string> args, DownloadOptions options)
     {
-        if (options.SponsorBlock is not { } sponsorBlock)
+        // Live streams have no SponsorBlock segments yet.
+        if (options.SponsorBlock is not { } sponsorBlock || options.Live is not null)
         {
             return;
         }

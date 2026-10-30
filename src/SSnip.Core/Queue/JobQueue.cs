@@ -98,12 +98,14 @@ public sealed class JobQueue : IAsyncDisposable
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
         var stored = await _store.LoadAsync(cancellationToken).ConfigureAwait(false);
+        var loaded = new List<QueueJob>();
         var resumed = new List<QueueJob>();
         lock (_sync)
         {
             foreach (var job in stored)
             {
                 var current = Put(job.IsActive ? job with { State = JobState.Queued, ResumePartial = true } : job);
+                loaded.Add(current);
                 if (current.State != job.State)
                 {
                     resumed.Add(current);
@@ -119,6 +121,11 @@ public sealed class JobQueue : IAsyncDisposable
         }
 
         resumed.ForEach(Save);
+        foreach (var job in loaded)
+        {
+            JobChanged?.Invoke(this, job);
+        }
+
         Pump();
     }
 

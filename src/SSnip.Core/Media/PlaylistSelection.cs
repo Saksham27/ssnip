@@ -141,6 +141,28 @@ public static partial class ChannelTabs
         return $"https://www.youtube.com{match.Groups["base"].Value}/{suffix}";
     }
 
+    /// <summary>
+    /// The tab a YouTube channel link points at, or null for the channel's home page or a link that is
+    /// not a channel. A bare channel lists its tabs instead of videos, so Home opens the Videos tab.
+    /// </summary>
+    public static ChannelTab? TabOf(string url)
+    {
+        if (UrlFor(url, ChannelTab.Videos) is null || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        return uri.AbsolutePath.TrimEnd('/').Split('/')[^1].ToLowerInvariant() switch
+        {
+            "videos" => ChannelTab.Videos,
+            "shorts" => ChannelTab.Shorts,
+            "streams" => ChannelTab.Live,
+            _ => null,
+        };
+    }
+
+    public static bool IsChannel(string url) => UrlFor(url, ChannelTab.Videos) is not null;
+
     // /@handle, /channel/UC…, /c/name or /user/name, optionally followed by a tab.
     [GeneratedRegex(@"^(?<base>/(@[^/]+|channel/[^/]+|c/[^/]+|user/[^/]+))(/[^/]*)?/?$", RegexOptions.IgnoreCase)]
     private static partial Regex ChannelPath();
