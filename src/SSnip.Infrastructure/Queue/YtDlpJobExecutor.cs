@@ -44,7 +44,8 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
                 case DownloadProgressEvent progress:
                     updates.Report(new JobUpdate(JobState.Downloading, ToProgress(progress)));
                     break;
-                case PostProcessEvent { IsStarted: true } postProcess:
+                // SponsorBlock only looks up segments before the download; it is not post-processing.
+                case PostProcessEvent { IsStarted: true, PostProcessor: not "SponsorBlock" } postProcess:
                     updates.Report(new JobUpdate(JobState.PostProcessing, new JobProgress(DownloadStageResolver.FromPostProcessor(postProcess.PostProcessor))));
                     break;
                 case TitleEvent title:
@@ -52,6 +53,9 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
                     break;
             }
         });
+
+        // yt-dlp hands live streams to ffmpeg, which reports no progress, so show the growing file.
+        using var recording = options.Live is null ? null : WatchRecording(options.OutputDirectory, updates);
 
         DownloadResult result;
         try
@@ -89,6 +93,39 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
         }
 
         return JobOutcome.Failed(result.Errors.LastOrDefault() ?? $"yt-dlp exited with code {result.ExitCode}.", command);
+    }
+
+    /// <summary>Every two seconds, reports the size of the newest partial file in the folder as recording progress.</summary>
+    private static Timer WatchRecording(string folder, IProgress<JobUpdate> updates)
+    {
+        var started = DateTime.UtcNow;
+        return new Timer(
+            _ =>
+            {
+                try
+                {
+                    // Windows does not update a directory's size or write time for a file that is still
+                    // open, so pick it by creation time and read its length from an open handle.
+                    var partial = new DirectoryInfo(folder).EnumerateFiles("*.part")
+                        .Where(f => f.CreationTimeUtc >= started)
+                        .MaxBy(f => f.CreationTimeUtc);
+                    long size = 0;
+                    if (partial is not null)
+                    {
+                        using var stream = new FileStream(partial.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                        size = stream.Length;
+                    }
+
+                    updates.Report(new JobUpdate(JobState.Downloading, new JobProgress(DownloadStage.Recording, DownloadedBytes: size)));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // The file is being renamed; the next tick catches up.
+                }
+            },
+            null,
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(2));
     }
 
     private static JobProgress ToProgress(DownloadProgressEvent p) => new(
