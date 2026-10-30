@@ -21,6 +21,16 @@ public static partial class YtDlpArgsBuilder
     /// <summary>info.json files are named by site and id, so one folder can hold every source.</summary>
     public const string InfoJsonTemplate = "%(extractor)s-%(id)s";
 
+    /// <summary>Chapter files from <c>--split-chapters</c>: "Title - 03 Boss fight [id].mp4".</summary>
+    public const string ChapterTemplate = "chapter:%(title)s - %(section_number)02d %(section_title)s [%(id)s].%(ext)s";
+
+    /// <summary>
+    /// The output template for a named clip: the name with yt-dlp's <c>%</c> escaped, then the id, so
+    /// clips of different videos never collide.
+    /// </summary>
+    public static string ClipTemplate(string clipName) =>
+        $"{(string.IsNullOrWhiteSpace(clipName) ? "Clip" : clipName.Trim().Replace("%", "%%", StringComparison.Ordinal))} [%(id)s].%(ext)s";
+
     private static readonly string[] Containers = ["mp4", "mkv", "mov", "webm"];
 
     public static IReadOnlyList<string> Build(DownloadOptions options)
@@ -61,6 +71,16 @@ public static partial class YtDlpArgsBuilder
         {
             args.Add("--download-sections");
             args.Add(section);
+        }
+
+        if (options.Sections.Count > 0 && options.CutMode == Clipping.CutMode.Accurate)
+        {
+            args.Add("--force-keyframes-at-cuts");
+        }
+
+        if (options.SplitChapters)
+        {
+            args.AddRange(["--split-chapters", "-o", ChapterTemplate]);
         }
 
         AddSubtitles(args, options.Subtitles);
