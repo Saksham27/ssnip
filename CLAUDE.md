@@ -31,6 +31,12 @@ WPF + WPF-UI (dark Fluent theme), CommunityToolkit.Mvvm, Microsoft.Extensions.Ho
 - `--print` implies `--quiet`, so yt-dlp's own "skipping" messages never appear: a date filter that rejects a video ends with exit 0 and no file, which `YtDlpJobExecutor` reports as a skip.
 - SponsorBlock removal is never applied to preview proxies or section downloads, so their timestamps match the original video.
 - Keep record settings free of lists (`AppSettings` uses value equality); store such values as strings.
+- Queue jobs carry `JobOptions` (`DownloadOptions`, `LocalCutOptions`, `FrameOptions`); the store keeps the kind next to the JSON and `JobExecutorRouter` picks the runner.
+- `ffmpeg -encoders` lists hardware encoders the PC may not have; `FfmpegService` test-encodes before trusting one.
+- Clips: each marked clip is its own job. URL clips are `--download-sections` jobs (Accurate adds `--force-keyframes-at-cuts`) converted afterwards with the editor profile; local clips are ffmpeg cuts that drop chapters and data tracks. Accurate cuts measure frame-exact (PSNR against the source).
+- LibVLC: attach the `MediaPlayer` to the `VideoView` before playing, or LibVLC opens its own window; subtitle auto-loading is off. While paused, the editor keeps the exact seek target because LibVLC's reported time lags a seek.
+- Check WPF-UI icon names against `SymbolRegular` (some, like `PlayPause24`, exist only as filled icons); a wrong name fails the whole page at load.
+- `SSnip.App.exe <video file>` opens the file in the clip editor.
 - Never add Claude attribution (Co-Authored-By trailers or "Generated with Claude Code") to commits or PRs.
 - Build command lines as argument lists, never concatenated strings.
 - All process calls are async, cancellable and report progress; never block the UI thread.
