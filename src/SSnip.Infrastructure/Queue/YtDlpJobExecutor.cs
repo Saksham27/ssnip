@@ -1,7 +1,6 @@
-using System.Globalization;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using SSnip.Core;
+using SSnip.Core.Clipping;
 using SSnip.Core.Downloads;
 using SSnip.Core.Processes;
 using SSnip.Core.Queue;
@@ -10,10 +9,10 @@ using SSnip.Core.Tools;
 namespace SSnip.Infrastructure.Queue;
 
 /// <summary>
-/// Runs a queue job with yt-dlp. Every job writes its own log (command line and all output) to
-/// <c>logs\jobs\job-&lt;id&gt;.log</c>.
+/// Runs a download job with yt-dlp, then converts it with the job's editor profile when one is set.
+/// Every job writes its own log (command lines and all output).
 /// </summary>
-public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner processRunner, AppPaths paths, ILogger<YtDlpJobExecutor> logger) : IJobExecutor
+public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IFfmpegService ffmpeg, IProcessRunner processRunner, AppPaths paths, ILogger<YtDlpJobExecutor> logger) : IJobExecutor
 {
     public const string AlreadyDownloadedNote = "Already in the folder, so nothing was downloaded. Turn on Overwrite to download it again.";
 
@@ -25,17 +24,15 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
     {
         ArgumentNullException.ThrowIfNull(job);
         ArgumentNullException.ThrowIfNull(updates);
+        var download = job.Options as DownloadOptions ?? throw new ArgumentException("Not a download job.", nameof(job));
 
         // An interrupted run left .part files; overwriting would throw them away.
-        var options = job.ResumePartial ? job.Options with { Overwrite = false } : job.Options;
+        var options = job.ResumePartial ? download with { Overwrite = false } : download;
         var command = ytDlp.DescribeCommand(options);
-        var logPath = paths.JobLogFile(job.Id);
-        Directory.CreateDirectory(paths.JobLogs);
 
-        using var log = new JobLog(logPath);
-        log.Line($"# {DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz} job {job.Id}{(job.ResumePartial ? " (resuming)" : "")}");
+        using var log = JobLog.Open(paths, job);
         log.Line($"# {command}");
-        updates.Report(new JobUpdate(CommandLine: command, LogPath: logPath));
+        updates.Report(new JobUpdate(CommandLine: command, LogPath: log.Path));
 
         var events = new SynchronousProgress<YtDlpEvent>(e =>
         {
@@ -84,6 +81,11 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
 
         if (result.Succeeded)
         {
+            if (options.Profile is { Converts: true } profile && !result.WasSkipped)
+            {
+                return await ConvertAsync(result.FilePath!, profile, deleteSource: options.Sections.Count > 0, updates, log, command, abort).ConfigureAwait(false);
+            }
+
             return JobOutcome.Done(result.FilePath, result.WasSkipped ? AlreadyDownloadedNote : null, command);
         }
 
@@ -94,6 +96,60 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
 
         return JobOutcome.Failed(result.Errors.LastOrDefault() ?? $"yt-dlp exited with code {result.ExitCode}.", command);
     }
+
+    /// <summary>The converted file's path: next to the source, named after the profile.</summary>
+    public static string ConvertedPath(string source, EditorProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        var label = profile.Kind switch
+        {
+            EditorProfileKind.DnxhrHq => "DNxHR HQ",
+            EditorProfileKind.ProRes422 => "ProRes",
+            _ => "H.264",
+        };
+        return System.IO.Path.Combine(System.IO.Path.GetDirectoryName(source)!, $"{System.IO.Path.GetFileNameWithoutExtension(source)} ({label}).{profile.Extension}");
+    }
+
+    /// <summary>
+    /// Converts a downloaded file with an editor profile. A clip section's raw download is only a step
+    /// on the way, so it is deleted once the conversion succeeds; a whole download is kept.
+    /// </summary>
+    private async Task<JobOutcome> ConvertAsync(string source, EditorProfile profile, bool deleteSource, IProgress<JobUpdate> updates, JobLog log, string command, CancellationToken abort)
+    {
+        if (profile.Kind == EditorProfileKind.H264 && profile.Encoder is null)
+        {
+            profile = profile with { Encoder = (await ffmpeg.DetectEncodersAsync(abort).ConfigureAwait(false)).H264Encoder };
+        }
+
+        var output = ConvertedPath(source, profile);
+        var arguments = FfmpegArgsBuilder.Convert(source, output, profile);
+        var duration = await ffmpeg.ProbeDurationAsync(source, abort).ConfigureAwait(false);
+        var ffmpegCommand = processRunner.Describe(new ProcessRequest(ExternalTool.Ffmpeg, arguments)).CommandLine;
+        log.Line($"# {ffmpegCommand}");
+        updates.Report(new JobUpdate(JobState.PostProcessing, new JobProgress(DownloadStage.Converting, 0)));
+
+        var result = await ffmpeg.RunAsync(
+            arguments,
+            new SynchronousProgress<FfmpegProgress>(p => updates.Report(new JobUpdate(JobState.PostProcessing, ToProgress(p, duration, DownloadStage.Converting)))),
+            new SynchronousProgress<OutputLine>(log.Output),
+            abort).ConfigureAwait(false);
+        log.Line($"# ffmpeg exit code {result.ExitCode}");
+
+        if (!result.Succeeded || !File.Exists(output))
+        {
+            return JobOutcome.Failed($"Converting with {profile.Kind} failed (ffmpeg exit code {result.ExitCode}). The downloaded file is kept: {source}", $"{command}\n{ffmpegCommand}");
+        }
+
+        if (deleteSource)
+        {
+            File.Delete(source);
+        }
+
+        return JobOutcome.Done(output, null, $"{command}\n{ffmpegCommand}");
+    }
+
+    internal static JobProgress ToProgress(FfmpegProgress p, TimeSpan? duration, DownloadStage stage) =>
+        new(stage, p.FractionOf(duration), Eta: p.EtaFor(duration));
 
     /// <summary>Every two seconds, reports the size of the newest partial file in the folder as recording progress.</summary>
     private static Timer WatchRecording(string folder, IProgress<JobUpdate> updates)
@@ -157,10 +213,10 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
             return null;
         }
 
-        var output = Path.ChangeExtension(target, ".mp4");
+        var output = System.IO.Path.ChangeExtension(target, ".mp4");
         if (string.Equals(output, partial, StringComparison.OrdinalIgnoreCase) || File.Exists(output))
         {
-            output = Path.Combine(Path.GetDirectoryName(target)!, $"{Path.GetFileNameWithoutExtension(target)} (recording {DateTime.Now:HHmmss}).mp4");
+            output = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(target)!, $"{System.IO.Path.GetFileNameWithoutExtension(target)} (recording {DateTime.Now:HHmmss}).mp4");
         }
 
         log.Line($"# Remuxing the partial recording {partial} into {output}");
@@ -181,51 +237,4 @@ public sealed partial class YtDlpJobExecutor(IYtDlpService ytDlp, IProcessRunner
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Remuxing the stopped recording {Partial} failed with exit code {ExitCode}; keeping the partial file")]
     private partial void LogRemuxFailed(string partial, int exitCode);
-
-    /// <summary>
-    /// Appends to one job's log; output arrives on two reader threads. Progress lines are kept at
-    /// most once a second, so an hour-long recording does not write a line per fragment.
-    /// </summary>
-    private sealed class JobLog(string path) : IDisposable
-    {
-        private readonly StreamWriter _writer = new(path, append: true, new UTF8Encoding(false)) { AutoFlush = true };
-        private long _lastProgressTicks;
-        private bool _disposed;
-
-        public void Line(string text)
-        {
-            lock (_writer)
-            {
-                if (!_disposed)
-                {
-                    _writer.WriteLine(text);
-                }
-            }
-        }
-
-        public void Output(OutputLine line)
-        {
-            if (line.Text.StartsWith(YtDlpArgsBuilder.ProgressPrefix, StringComparison.Ordinal) && !line.Text.Contains("\"finished\"", StringComparison.Ordinal))
-            {
-                var now = Environment.TickCount64;
-                if (now - Interlocked.Read(ref _lastProgressTicks) < 1000)
-                {
-                    return;
-                }
-
-                Interlocked.Exchange(ref _lastProgressTicks, now);
-            }
-
-            Line(string.Create(CultureInfo.InvariantCulture, $"{DateTime.Now:HH:mm:ss.fff} {(line.Stream == OutputStream.StandardError ? "ERR" : "OUT")} {line.Text}"));
-        }
-
-        public void Dispose()
-        {
-            lock (_writer)
-            {
-                _disposed = true;
-                _writer.Dispose();
-            }
-        }
-    }
 }

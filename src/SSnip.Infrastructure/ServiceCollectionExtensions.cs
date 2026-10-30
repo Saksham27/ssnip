@@ -3,11 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SSnip.Core;
+using SSnip.Core.Clipping;
 using SSnip.Core.Downloads;
 using SSnip.Core.Processes;
 using SSnip.Core.Queue;
 using SSnip.Core.Settings;
 using SSnip.Core.Tools;
+using SSnip.Infrastructure.Clipping;
 using SSnip.Infrastructure.Data;
 using SSnip.Infrastructure.Downloads;
 using SSnip.Infrastructure.Queue;
@@ -34,7 +36,11 @@ public static class ServiceCollectionExtensions
 
         services.AddDbContextFactory<AppDbContext>(options => options.UseSqlite($"Data Source={paths.DatabaseFile}"));
         services.AddSingleton<IJobStore, SqliteJobStore>();
-        services.AddSingleton<IJobExecutor, YtDlpJobExecutor>();
+        services.AddSingleton<IClipStore, SqliteClipStore>();
+        services.AddSingleton<IFfmpegService, FfmpegService>();
+        services.AddSingleton<YtDlpJobExecutor>();
+        services.AddSingleton<FfmpegJobExecutor>();
+        services.AddSingleton<IJobExecutor, JobExecutorRouter>();
         services.AddSingleton(sp => new JobQueue(sp.GetRequiredService<IJobStore>(), sp.GetRequiredService<IJobExecutor>()));
         services.AddSingleton<ISettingsStore, JsonSettingsStore>();
         services.AddSingleton<IDependencyManager>(sp => new DependencyManager(

@@ -72,7 +72,7 @@ public sealed partial class SqliteJobStore(IDbContextFactory<AppDbContext> conte
         entity.Title = job.Title;
         entity.State = job.State.ToString();
         entity.Position = job.Position;
-        entity.OptionsJson = DownloadOptionsSerializer.Serialize(job.Options);
+        entity.OptionsJson = JobOptionsSerializer.Serialize(job.Options);
         entity.CommandLine = job.CommandLine;
         entity.FilePath = job.FilePath;
         entity.Error = job.Error;
@@ -88,11 +88,10 @@ public sealed partial class SqliteJobStore(IDbContextFactory<AppDbContext> conte
     private static QueueJob ToJob(JobEntity entity) => new()
     {
         Id = entity.Id,
-        Kind = Enum.Parse<JobKind>(entity.Kind),
         Title = entity.Title,
         State = Enum.Parse<JobState>(entity.State),
         Position = entity.Position,
-        Options = DownloadOptionsSerializer.Deserialize(entity.OptionsJson),
+        Options = JobOptionsSerializer.Deserialize(Enum.Parse<JobKind>(entity.Kind), entity.OptionsJson),
         CommandLine = entity.CommandLine,
         FilePath = entity.FilePath,
         Error = entity.Error,

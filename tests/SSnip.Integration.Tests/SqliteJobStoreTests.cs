@@ -61,7 +61,7 @@ public sealed class SqliteJobStoreTests : IAsyncLifetime
         loaded.Position.ShouldBe(3);
         loaded.CreatedAt.ShouldBe(added.CreatedAt);
         loaded.State.ShouldBe(JobState.Queued);
-        YtDlpArgsBuilder.Build(loaded.Options).ShouldBe(YtDlpArgsBuilder.Build(added.Options));
+        YtDlpArgsBuilder.Build((DownloadOptions)loaded.Options).ShouldBe(YtDlpArgsBuilder.Build((DownloadOptions)added.Options));
     }
 
     [Fact]

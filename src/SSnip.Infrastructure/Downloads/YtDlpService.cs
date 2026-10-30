@@ -97,6 +97,18 @@ public sealed partial class YtDlpService(IProcessRunner processRunner, ILogger<Y
         return new DownloadResult(result.ExitCode, commandLine, finalPath, errors, stopwatch.Elapsed, wasSkipped, result.WasInterrupted, lastDownloadPath);
     }
 
+    public async Task<string> ResolveStreamUrlAsync(string url, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+
+        var request = new ProcessRequest(ExternalTool.YtDlp, ["-f", "bv*/b", "-g", "--no-playlist", "--no-warnings", "--", url.Trim()]);
+        var captured = await processRunner.RunAndCaptureAsync(request, cancellationToken).ConfigureAwait(false);
+        var stream = captured.StandardOutput.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return captured.Result.Succeeded && stream is not null
+            ? stream
+            : throw new YtDlpException(FirstError(captured.StandardError) ?? "yt-dlp found no video stream.", processRunner.Describe(request).CommandLine);
+    }
+
     public string DescribeCommand(DownloadOptions options) => processRunner.Describe(Request(options)).CommandLine;
 
     private static ProcessRequest Request(DownloadOptions options) =>

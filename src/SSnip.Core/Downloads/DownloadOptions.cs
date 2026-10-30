@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using SSnip.Core.Queue;
+
 namespace SSnip.Core.Downloads;
 
 /// <summary>The quality presets from the plan's Format selection table.</summary>
@@ -37,11 +40,15 @@ public sealed record FormatSelection(string? VideoFormatId, string? AudioFormatI
 }
 
 /// <summary>Everything that decides one download. <see cref="YtDlpArgsBuilder"/> turns it into arguments.</summary>
-public sealed record DownloadOptions
+public sealed record DownloadOptions : JobOptions
 {
     public required string Url { get; init; }
 
-    public required string OutputDirectory { get; init; }
+    [JsonIgnore]
+    public override string Source => Url;
+
+    [JsonIgnore]
+    public override JobKind Kind => JobKind.Download;
 
     public FormatPreset Preset { get; init; } = FormatPreset.EditorSafe;
 

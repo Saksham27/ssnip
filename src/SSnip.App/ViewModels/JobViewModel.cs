@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using SSnip.Core.Clipping;
 using SSnip.Core.Downloads;
 using SSnip.Core.Formatting;
 using SSnip.Core.Queue;
@@ -77,15 +78,29 @@ public sealed partial class JobViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasFile { get; private set; }
 
-    public string PresetText => Job.Options.Preset switch
+    public string PresetText => Job.Options switch
     {
-        FormatPreset.EditorSafe => "Editor-safe",
-        FormatPreset.MaxQuality => "Max quality",
-        FormatPreset.Cap1080 => "1080p cap",
-        FormatPreset.AudioOnly => $"Audio · {Job.Options.AudioFormat.ToString().ToUpperInvariant()}",
-        FormatPreset.PreviewProxy => "Preview proxy",
-        _ => "Custom",
-    } + (Job.IsLive ? " · live" : "");
+        DownloadOptions download => (download.Preset switch
+        {
+            FormatPreset.EditorSafe => "Editor-safe",
+            FormatPreset.MaxQuality => "Max quality",
+            FormatPreset.Cap1080 => "1080p cap",
+            FormatPreset.AudioOnly => $"Audio · {download.AudioFormat.ToString().ToUpperInvariant()}",
+            FormatPreset.PreviewProxy => "Preview proxy",
+            _ => "Custom",
+        })
+            + (download.Sections.Count > 0 ? $" · clip, {(download.CutMode == CutMode.Accurate ? "accurate" : "fast")}" : "")
+            + (download.Profile is { Converts: true } profile ? $" · {profile.Kind}" : "")
+            + (Job.IsLive ? " · live" : ""),
+        LocalCutOptions cut => $"Local cut, {(cut.Mode == CutMode.Accurate ? "accurate" : "fast")}",
+        FrameOptions frames => frames.Mode switch
+        {
+            FrameMode.Every => $"Frames every {frames.EverySeconds:0.#} s",
+            FrameMode.ContactSheet => "Contact sheet",
+            _ => "Frame grab",
+        },
+        _ => "",
+    };
 
     /// <summary>Takes a newer copy of the job; an older one that arrives late is ignored.</summary>
     public bool Update(QueueJob job)

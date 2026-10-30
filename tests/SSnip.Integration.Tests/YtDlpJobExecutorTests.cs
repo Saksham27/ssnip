@@ -5,6 +5,7 @@ using SSnip.Core.Downloads;
 using SSnip.Core.Processes;
 using SSnip.Core.Queue;
 using SSnip.Core.Tools;
+using SSnip.Infrastructure.Clipping;
 using SSnip.Infrastructure.Downloads;
 using SSnip.Infrastructure.Queue;
 
@@ -17,6 +18,7 @@ public sealed class YtDlpJobExecutorTests(ToolsFixture tools) : IDisposable
 {
     private readonly YtDlpJobExecutor _executor = new(
         new YtDlpService(tools.Runner, NullLogger<YtDlpService>.Instance),
+        new FfmpegService(tools.Runner, NullLogger<FfmpegService>.Instance),
         tools.Runner,
         tools.Paths,
         NullLogger<YtDlpJobExecutor>.Instance);

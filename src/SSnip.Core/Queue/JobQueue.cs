@@ -145,7 +145,7 @@ public sealed class JobQueue : IAsyncDisposable
             var job = new QueueJob
             {
                 Options = newJob.Options,
-                Title = string.IsNullOrWhiteSpace(newJob.Title) ? newJob.Options.Url : newJob.Title,
+                Title = string.IsNullOrWhiteSpace(newJob.Title) ? newJob.Options.Source : newJob.Title,
                 Position = position++,
                 CreatedAt = _time.GetUtcNow(),
             };

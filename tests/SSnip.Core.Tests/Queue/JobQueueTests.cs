@@ -23,7 +23,7 @@ public sealed class JobQueueTests : IAsyncDisposable
         return await _queue.AddAsync(names.Select(n => Job(n)));
     }
 
-    private QueueJob Get(string name) => _queue.Jobs.Single(j => j.Options.Url == name);
+    private QueueJob Get(string name) => _queue.Jobs.Single(j => j.Options.Source == name);
 
     private static async Task Eventually(Func<bool> condition, string because = "")
     {
@@ -61,7 +61,7 @@ public sealed class JobQueueTests : IAsyncDisposable
         await Eventually(() => _queue.Jobs.All(j => j.State == JobState.Done));
         _executor.MaxRunning.ShouldBe(2);
         // Each pair starts together, so only the order between pairs is fixed; Running checks that.
-        _executor.Started.Select(j => j.Options.Url).ShouldBe(names, ignoreOrder: true);
+        _executor.Started.Select(j => j.Options.Source).ShouldBe(names, ignoreOrder: true);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public sealed class JobQueueTests : IAsyncDisposable
         await Eventually(() => Get("a").State == JobState.Cancelled);
         Get("c").State.ShouldBe(JobState.Cancelled);
         Get("a").FinishedAt.ShouldNotBeNull();
-        _executor.Started.Select(j => j.Options.Url).ShouldNotContain("c");
+        _executor.Started.Select(j => j.Options.Source).ShouldNotContain("c");
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public sealed class JobQueueTests : IAsyncDisposable
         _executor.Finish("a");
 
         await Running("d");
-        _queue.Jobs.Select(j => j.Options.Url).ShouldBe(["a", "d", "b", "c"]);
+        _queue.Jobs.Select(j => j.Options.Source).ShouldBe(["a", "d", "b", "c"]);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public sealed class JobQueueTests : IAsyncDisposable
 
         _queue.ClearFinished().ShouldBe(2);
 
-        _queue.Jobs.Select(j => j.Options.Url).ShouldBe(["c"]);
+        _queue.Jobs.Select(j => j.Options.Source).ShouldBe(["c"]);
     }
 
     [Fact]
@@ -287,7 +287,7 @@ public sealed class JobQueueTests : IAsyncDisposable
         await _store.AddAsync(new QueueJob { Title = "done", Options = Job("done").Options, State = JobState.Done });
         await _store.AddAsync(new QueueJob { Title = "waiting", Options = Job("waiting").Options, State = JobState.Paused });
         var announced = new System.Collections.Concurrent.ConcurrentBag<string>();
-        _queue.JobChanged += (_, job) => announced.Add(job.Options.Url);
+        _queue.JobChanged += (_, job) => announced.Add(job.Options.Source);
 
         await _queue.LoadAsync();
 

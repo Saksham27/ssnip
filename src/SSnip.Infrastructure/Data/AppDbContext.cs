@@ -12,6 +12,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 {
     public DbSet<JobEntity> Jobs => Set<JobEntity>();
 
+    public DbSet<ClipDraftEntity> ClipDrafts => Set<ClipDraftEntity>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
@@ -23,6 +25,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             job.Property(j => j.Kind).HasMaxLength(32);
             job.Property(j => j.State).HasMaxLength(32);
             job.HasIndex(j => j.State);
+        });
+
+        modelBuilder.Entity<ClipDraftEntity>(clip =>
+        {
+            clip.ToTable("ClipDrafts");
+            clip.HasKey(c => c.Id);
+            clip.HasIndex(c => c.Source);
         });
     }
 
@@ -65,6 +74,26 @@ public sealed class JobEntity
     public DateTimeOffset? StartedAt { get; set; }
 
     public DateTimeOffset? FinishedAt { get; set; }
+}
+
+/// <summary>A clip marked in the clip editor, kept per source (video URL or local path) in milliseconds.</summary>
+public sealed class ClipDraftEntity
+{
+    public long Id { get; set; }
+
+    public required string Source { get; set; }
+
+    public int Position { get; set; }
+
+    public long InMs { get; set; }
+
+    public long OutMs { get; set; }
+
+    public string Name { get; set; } = "";
+
+    public string Tags { get; set; } = "";
+
+    public string Note { get; set; } = "";
 }
 
 /// <summary>Lets <c>dotnet ef</c> build the model without starting the app.</summary>
