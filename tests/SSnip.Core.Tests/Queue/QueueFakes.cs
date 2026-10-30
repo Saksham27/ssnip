@@ -50,9 +50,10 @@ internal sealed class ControlledExecutor : IJobExecutor
 
     public async Task<JobOutcome> RunAsync(QueueJob job, IProgress<JobUpdate> updates, CancellationToken abort, CancellationToken stop)
     {
+        // Recorded before counting it as running: tests wait on the running count, then read Started.
+        Started.Enqueue(job);
         var running = Interlocked.Increment(ref _running);
         InterlockedMax(ref _maxRunning, running);
-        Started.Enqueue(job);
         try
         {
             updates.Report(new JobUpdate(Progress: new JobProgress(DownloadStage.Video, 0.5), Title: "Title of " + job.Options.Url));
