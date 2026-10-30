@@ -56,8 +56,8 @@ internal sealed class ControlledExecutor : IJobExecutor
         InterlockedMax(ref _maxRunning, running);
         try
         {
-            updates.Report(new JobUpdate(Progress: new JobProgress(DownloadStage.Video, 0.5), Title: "Title of " + job.Options.Url));
-            var outcome = Completion(job.Options.Url);
+            updates.Report(new JobUpdate(Progress: new JobProgress(DownloadStage.Video, 0.5), Title: "Title of " + job.Options.Source));
+            var outcome = Completion(job.Options.Source);
             using (stop.Register(() => outcome.TrySetResult(JobOutcome.Done("recorded.ts", "Recording stopped"))))
             {
                 return await outcome.Task.WaitAsync(abort);
@@ -66,7 +66,7 @@ internal sealed class ControlledExecutor : IJobExecutor
         finally
         {
             Interlocked.Decrement(ref _running);
-            _pending.TryRemove(job.Options.Url, out _);
+            _pending.TryRemove(job.Options.Source, out _);
         }
     }
 

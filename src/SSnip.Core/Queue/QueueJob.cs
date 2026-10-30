@@ -2,10 +2,6 @@ using SSnip.Core.Downloads;
 
 namespace SSnip.Core.Queue;
 
-public enum JobKind
-{
-    Download,
-}
 
 /// <summary>
 /// One job in the persistent queue. Immutable: <see cref="JobQueue"/> replaces it on every change,
@@ -15,9 +11,9 @@ public sealed record QueueJob
 {
     public long Id { get; init; }
 
-    public JobKind Kind { get; init; } = JobKind.Download;
+    public JobKind Kind => Options.Kind;
 
-    public required DownloadOptions Options { get; init; }
+    public required JobOptions Options { get; init; }
 
     /// <summary>The video title once known; the URL until then.</summary>
     public required string Title { get; init; }
@@ -59,7 +55,7 @@ public sealed record QueueJob
     /// <summary>Grows with every change in this session, so a late, older copy can be ignored. Not stored.</summary>
     public long Revision { get; init; }
 
-    public bool IsLive => Options.Live is not null;
+    public bool IsLive => Options is DownloadOptions { Live: not null };
 
     public bool IsActive => State is JobState.Fetching or JobState.Downloading or JobState.PostProcessing;
 
@@ -79,7 +75,7 @@ public sealed record JobProgress(
     int? FragmentCount = null);
 
 /// <summary>A job to add; the title defaults to the URL until yt-dlp reports it.</summary>
-public sealed record NewJob(DownloadOptions Options, string? Title = null);
+public sealed record NewJob(JobOptions Options, string? Title = null);
 
 /// <summary>Something a running job reports. Null fields are unchanged.</summary>
 public sealed record JobUpdate(

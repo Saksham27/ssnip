@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using SSnip.Core.Queue;
+
 namespace SSnip.Core.Downloads;
 
 /// <summary>The quality presets from the plan's Format selection table.</summary>
@@ -37,11 +40,15 @@ public sealed record FormatSelection(string? VideoFormatId, string? AudioFormatI
 }
 
 /// <summary>Everything that decides one download. <see cref="YtDlpArgsBuilder"/> turns it into arguments.</summary>
-public sealed record DownloadOptions
+public sealed record DownloadOptions : JobOptions
 {
     public required string Url { get; init; }
 
-    public required string OutputDirectory { get; init; }
+    [JsonIgnore]
+    public override string Source => Url;
+
+    [JsonIgnore]
+    public override JobKind Kind => JobKind.Download;
 
     public FormatPreset Preset { get; init; } = FormatPreset.EditorSafe;
 
@@ -95,6 +102,15 @@ public sealed record DownloadOptions
 
     /// <summary>Live streams and scheduled streams; null for normal videos.</summary>
     public LiveOptions? Live { get; init; }
+
+    /// <summary>For <see cref="Sections"/>: Accurate adds <c>--force-keyframes-at-cuts</c>, which re-encodes so cuts land on the marks.</summary>
+    public Clipping.CutMode CutMode { get; init; } = Clipping.CutMode.Fast;
+
+    /// <summary>Also write each chapter as its own file (<c>--split-chapters</c>).</summary>
+    public bool SplitChapters { get; init; }
+
+    /// <summary>Conversion run with ffmpeg after the download; not a yt-dlp option. Null keeps the file as downloaded.</summary>
+    public Clipping.EditorProfile? Profile { get; init; }
 
     public bool HasDateFilter => DateAfter is not null || DateBefore is not null;
 }

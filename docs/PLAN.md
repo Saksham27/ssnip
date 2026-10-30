@@ -461,10 +461,10 @@ SQLite, persistent queue, concurrency, pause/resume/retry, toasts, taskbar progr
 
 Proxy download, clip editor with player and keys, section downloads with fast/accurate modes and handles, chapter clips, timestamp import, local file clipping, frame grabs, editor profiles with encoder detection.
 
-- [ ] Mark 3 clips on a proxy and batch-download them at full quality; each starts and ends within 0.1 s of the marks in Accurate mode
-- [ ] Pasted timestamp lines become clips with names
-- [ ] H.264 profile uses `h264_amf` when available and the output imports into DaVinci Resolve and scrubs smoothly
-- [ ] Frame grab saves a full-resolution PNG
+- [x] Mark 3 clips on a proxy and batch-download them at full quality; each starts and ends within 0.1 s of the marks in Accurate mode
+- [x] Pasted timestamp lines become clips with names
+- [x] H.264 profile uses `h264_amf` when available and the output imports into DaVinci Resolve and scrubs smoothly
+- [x] Frame grab saves a full-resolution PNG
 
 ### Phase 4: Projects and library
 

@@ -20,8 +20,8 @@ Versions are filled in when each package is added to the solution.
 
 | Name | Version | License | Project URL | How it is used |
 | --- | --- | --- | --- | --- |
-| LibVLCSharp.WPF | Not yet added | LGPL 2.1+ | https://github.com/videolan/libvlcsharp | NuGet, dynamically linked; preview player |
-| VideoLAN.LibVLC.Windows | Not yet added | LGPL 2.1+ | https://www.videolan.org/vlc/libvlc.html | NuGet, dynamically linked; native player library |
+| LibVLCSharp.WPF (with LibVLCSharp) | 3.10.2 | LGPL 2.1+ | https://github.com/videolan/libvlcsharp | NuGet, dynamically linked; clip editor player |
+| VideoLAN.LibVLC.Windows | 3.0.24 | LGPL 2.1+ | https://www.videolan.org/vlc/libvlc.html | NuGet, dynamically linked; native player library |
 | CommunityToolkit.Mvvm | 8.4.2 | MIT | https://github.com/CommunityToolkit/dotnet | NuGet; MVVM source generators |
 | WPF-UI (with Wpf.Ui.Abstractions) | 4.3.0 | MIT | https://github.com/lepoco/wpfui | NuGet; Fluent styling and navigation |
 | Microsoft.Extensions.Hosting | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; DI, options, logging host |

@@ -22,6 +22,12 @@ public interface IYtDlpService
         IProgress<OutputLine>? output = null,
         CancellationToken stop = default);
 
+    /// <summary>
+    /// The direct URL of a video's best video stream (<c>-f bv*/b -g</c>), for frame grabs at full
+    /// quality without downloading the file. Throws <see cref="YtDlpException"/> when yt-dlp fails.
+    /// </summary>
+    Task<string> ResolveStreamUrlAsync(string url, CancellationToken cancellationToken = default);
+
     /// <summary>The exact command line a download will run, for "Show command".</summary>
     string DescribeCommand(DownloadOptions options);
 }
