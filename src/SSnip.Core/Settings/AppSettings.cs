@@ -30,6 +30,54 @@ public sealed record AppSettings
 
     /// <summary>Subtitle languages picked by default, in order, as typed: "en, hi". A string keeps the record's equality simple.</summary>
     public string SubtitleLanguages { get; init; } = string.Join(", ", Downloads.SubtitleOptions.DefaultLanguages);
+
+    /// <summary>Clip editor defaults.</summary>
+    public ClippingSettings Clipping { get; init; } = new();
+}
+
+/// <summary>Handles, cut mode and editor profile the clip editor starts with.</summary>
+public sealed record ClippingSettings
+{
+    public double HandleSeconds { get; init; } = Core.Clipping.ClipTime.DefaultHandleSeconds;
+
+    public Core.Clipping.CutMode CutMode { get; init; } = Core.Clipping.CutMode.Accurate;
+
+    public Core.Clipping.EditorProfileKind Profile { get; init; } = Core.Clipping.EditorProfileKind.H264;
+
+    /// <summary>Null keeps the source's frame rate.</summary>
+    public int? TargetFps { get; init; }
+
+    /// <summary>Null keeps the source's size.</summary>
+    public int? TargetHeight { get; init; }
+
+    public bool ConstantFrameRate { get; init; } = true;
+
+    public Core.Clipping.ProfileAudio Audio { get; init; } = Core.Clipping.ProfileAudio.Aac48k;
+
+    /// <summary>An H.264 encoder to use instead of the detected one, for example <c>libx264</c>; null uses the best working one.</summary>
+    public string? H264Encoder { get; init; }
+}
+
+public static class LibraryFolders
+{
+    public const string Raw = "raw";
+
+    public const string Proxies = "proxies";
+
+    public const string Clips = "clips";
+
+    public const string Frames = "frames";
+
+    /// <summary>
+    /// <c>&lt;library&gt;\Inbox\&lt;kind&gt;</c>, where everything goes until projects arrive in Phase 4. Without a
+    /// library yet, <c>Videos\SSnip\Inbox</c>.
+    /// </summary>
+    public static string Inbox(AppSettings settings, string kind)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var root = settings.LibraryRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "SSnip");
+        return Path.Combine(root, "Inbox", kind);
+    }
 }
 
 public interface ISettingsStore

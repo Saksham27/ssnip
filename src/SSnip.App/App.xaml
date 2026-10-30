@@ -19,6 +19,9 @@
             <converters:IsNotNullToVisibilityConverter x:Key="IsNotNullToVisibilityConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+            <converters:TimeToOffsetConverter x:Key="TimeToOffsetConverter" />
+            <converters:RangeToWidthConverter x:Key="RangeToWidthConverter" />
+            <converters:HasValueToVisibilityConverter x:Key="HasValueToVisibilityConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

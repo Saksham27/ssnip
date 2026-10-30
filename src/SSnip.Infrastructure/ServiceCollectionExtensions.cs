@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IJobStore, SqliteJobStore>();
         services.AddSingleton<IClipStore, SqliteClipStore>();
         services.AddSingleton<IFfmpegService, FfmpegService>();
+        services.AddSingleton<IThumbnailDownloader>(_ => new ThumbnailDownloader(CreateHttpClient()));
         services.AddSingleton<YtDlpJobExecutor>();
         services.AddSingleton<FfmpegJobExecutor>();
         services.AddSingleton<IJobExecutor, JobExecutorRouter>();

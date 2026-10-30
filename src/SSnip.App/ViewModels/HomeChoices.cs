@@ -24,6 +24,17 @@ public sealed partial class PlaylistEntryViewModel(int index, PlaylistEntry entr
     public partial bool IsSelected { get; set; } = true;
 }
 
+/// <summary>A chapter in the info panel, with a tick to download it as a clip.</summary>
+public sealed partial class ChapterRowViewModel(ChapterInfo chapter) : ObservableObject
+{
+    public ChapterInfo Chapter { get; } = chapter;
+
+    public string StartText => Core.Clipping.ClipTime.Display(Chapter.Start);
+
+    [ObservableProperty]
+    public partial bool IsSelected { get; set; }
+}
+
 public enum SponsorBlockAction
 {
     Keep,

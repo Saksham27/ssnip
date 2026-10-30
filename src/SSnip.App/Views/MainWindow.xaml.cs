@@ -11,7 +11,7 @@ public partial class MainWindow
     private readonly JobQueue _queue;
     private bool _queueStopped;
 
-    public MainWindow(MainWindowViewModel viewModel, PageProvider pageProvider, JobQueue queue)
+    public MainWindow(MainWindowViewModel viewModel, PageProvider pageProvider, JobQueue queue, ClipEditorViewModel clipEditor)
     {
         _queue = queue;
         DataContext = viewModel;
@@ -19,6 +19,7 @@ public partial class MainWindow
         RootNavigation.SetPageProviderService(pageProvider);
         Loaded += (_, _) => RootNavigation.Navigate(typeof(HomePage));
         viewModel.Home.OpenQueueRequested += (_, _) => RootNavigation.Navigate(typeof(QueuePage));
+        clipEditor.ShowRequested += (_, _) => RootNavigation.Navigate(typeof(ClipEditorPage));
 
         // "Fetch the link on the clipboard when the app gets focus" (off unless enabled in Settings).
         Activated += async (_, _) =>

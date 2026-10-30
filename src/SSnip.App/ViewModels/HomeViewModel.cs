@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using SSnip.App.Services;
 using SSnip.Core;
+using SSnip.Core.Clipping;
 using SSnip.Core.Downloads;
 using SSnip.Core.Formatting;
 using SSnip.Core.Media;
@@ -24,6 +25,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private readonly IYtDlpService _ytDlp;
     private readonly JobQueue _queue;
     private readonly QueueViewModel _queueView;
+    private readonly ClipEditorViewModel _clipEditor;
     private readonly ISettingsStore _settings;
     private readonly IDialogService _dialogs;
     private readonly AppPaths _paths;
@@ -33,7 +35,7 @@ public sealed partial class HomeViewModel : ObservableObject
     private bool _outputDirectoryChosen;
     private bool _switchingTab;
 
-    public HomeViewModel(IYtDlpService ytDlp, JobQueue queue, QueueViewModel queueView, ISettingsStore settings, IDialogService dialogs, AppPaths paths, ILogger<HomeViewModel> logger)
+    public HomeViewModel(IYtDlpService ytDlp, JobQueue queue, QueueViewModel queueView, ClipEditorViewModel clipEditor, ISettingsStore settings, IDialogService dialogs, AppPaths paths, ILogger<HomeViewModel> logger)
     {
         _ytDlp = ytDlp;
         _queue = queue;
@@ -42,6 +44,7 @@ public sealed partial class HomeViewModel : ObservableObject
         _dialogs = dialogs;
         _paths = paths;
         _logger = logger;
+        _clipEditor = clipEditor;
         SelectedPreset = Presets[0];
         SelectedSubtitleMode = SubtitleModes[0];
         SelectedChannelTab = ChannelTabChoices[0];
@@ -101,6 +104,9 @@ public sealed partial class HomeViewModel : ObservableObject
     /// <summary>The entries that pass the filters.</summary>
     public ObservableCollection<PlaylistEntryViewModel> Entries { get; } = [];
 
+    /// <summary>The video's chapters, each with a tick to download it as a clip.</summary>
+    public ObservableCollection<ChapterRowViewModel> Chapters { get; } = [];
+
     // ---- Input and info ----
 
     [ObservableProperty]
@@ -108,7 +114,7 @@ public sealed partial class HomeViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasInfo), nameof(InfoKindText), nameof(DurationText), nameof(UploadDateText), nameof(ViewsText), nameof(SubtitlesText), nameof(HasChapters), nameof(FilenamePreview), nameof(IsDownloadable), nameof(IsPlaylist), nameof(IsChannelWithTabs), nameof(IsLive), nameof(IsUpcoming), nameof(DownloadText))]
-    [NotifyCanExecuteChangedFor(nameof(DownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DownloadCommand), nameof(ClipCommand))]
     public partial MediaInfo? Info { get; private set; }
 
     [ObservableProperty]
@@ -367,6 +373,35 @@ public sealed partial class HomeViewModel : ObservableObject
     [RelayCommand]
     private void OpenQueue() => OpenQueueRequested?.Invoke(this, EventArgs.Empty);
 
+    /// <summary>Opens the video in the clip editor, which downloads a preview proxy to mark clips on.</summary>
+    [RelayCommand(CanExecute = nameof(CanClip))]
+    private Task ClipAsync() => _clipEditor.OpenUrlAsync(Info!);
+
+    private bool CanClip() => Info is { Kind: MediaKind.Video, WebpageUrl: not null };
+
+    /// <summary>Downloads each ticked chapter as its own clip, with the clip editor's saved defaults.</summary>
+    [RelayCommand]
+    private async Task DownloadTickedChaptersAsync()
+    {
+        var ticked = Chapters.Where(c => c.IsSelected).Select(c => new ClipMark { In = c.Chapter.Start, Out = c.Chapter.End, Name = c.Chapter.Title }).ToList();
+        if (Info?.WebpageUrl is not { } url || ticked.Count == 0)
+        {
+            Notice = "Tick one or more chapters first.";
+            return;
+        }
+
+        var clipping = _settings.Current.Clipping;
+        var batch = new ClipBatch(
+            LibraryFolders.Inbox(_settings.Current, LibraryFolders.Clips),
+            TimeSpan.FromSeconds(clipping.HandleSeconds),
+            clipping.CutMode,
+            new EditorProfile(clipping.Profile, clipping.H264Encoder, clipping.TargetFps, clipping.TargetHeight, clipping.ConstantFrameRate, clipping.Audio),
+            InfoJsonDirectory: _paths.InfoJson);
+        var jobs = ClipJobBuilder.ForUrl(url, Info.Title, ticked, Info.Duration, batch);
+        await _queue.AddAsync(jobs);
+        Notice = $"Added {jobs.Count} chapter clips to the queue ({(clipping.CutMode == CutMode.Accurate ? "accurate" : "fast")} cuts, {clipping.HandleSeconds:0.#} s handles).";
+    }
+
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task FetchAsync(CancellationToken cancellationToken)
     {
@@ -415,6 +450,7 @@ public sealed partial class HomeViewModel : ObservableObject
         Info = null;
         ClearFormats();
         ClearEntries();
+        Chapters.Clear();
         IsFetching = true;
         try
         {
@@ -423,6 +459,10 @@ public sealed partial class HomeViewModel : ObservableObject
             Info = info;
             LoadFormats(info);
             LoadEntries(info);
+            foreach (var chapter in info.Chapters)
+            {
+                Chapters.Add(new ChapterRowViewModel(chapter));
+            }
 
             // Exact formats belong to one video; a playlist uses a preset for every video.
             if (IsPlaylist)

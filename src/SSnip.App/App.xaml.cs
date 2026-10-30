@@ -55,6 +55,12 @@ public partial class App : Application
             MainWindow = window;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
             window.Show();
+
+            // "Open with SSnip": a video file on the command line opens in the clip editor.
+            if (e.Args.FirstOrDefault(System.IO.File.Exists) is { } file)
+            {
+                await services.GetRequiredService<ClipEditorViewModel>().OpenLocalPathAsync(file);
+            }
         }
         catch (Exception ex)
         {
@@ -110,6 +116,7 @@ public partial class App : Application
 
         builder.Services.AddSingleton<ToolsViewModel>();
         builder.Services.AddSingleton<QueueViewModel>();
+        builder.Services.AddSingleton<ClipEditorViewModel>();
         builder.Services.AddSingleton<HomeViewModel>();
         builder.Services.AddSingleton<MainWindowViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();

@@ -11,6 +11,8 @@ public interface IDialogService
 
     string? PickExecutable(string title, string fileName);
 
+    string? PickVideoFile(string title);
+
     void OpenInExplorer(string path);
 
     /// <summary>Opens Explorer with the file selected.</summary>
@@ -47,6 +49,18 @@ public sealed class DialogService : IDialogService
             Title = title,
             FileName = fileName,
             Filter = $"{fileName}|{fileName}|Programs (*.exe)|*.exe",
+            CheckFileExists = true,
+        };
+
+        return dialog.ShowDialog() == true ? dialog.FileName : null;
+    }
+
+    public string? PickVideoFile(string title)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = title,
+            Filter = "Video files|*.mp4;*.mkv;*.mov;*.webm;*.avi;*.m4v;*.ts;*.mxf|All files|*.*",
             CheckFileExists = true,
         };
 

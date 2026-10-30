@@ -98,6 +98,15 @@ public class FfmpegArgsBuilderTests
     }
 
     [Fact]
+    public void Cuts_leave_out_the_source_chapters_and_data_tracks()
+    {
+        var args = FfmpegArgsBuilder.Cut(In, Out, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), CutMode.Accurate);
+
+        ValueOf(args, "-map_chapters").ShouldBe("-1");
+        args.ShouldContain("-dn");
+    }
+
+    [Fact]
     public void Accurate_local_cut_re_encodes_even_when_keeping_the_original()
     {
         var args = FfmpegArgsBuilder.Cut(In, Out, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), CutMode.Accurate, EditorProfile.Original);

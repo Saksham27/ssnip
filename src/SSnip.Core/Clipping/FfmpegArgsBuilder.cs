@@ -37,8 +37,9 @@ public static class FfmpegArgsBuilder
             throw new ArgumentException("The cut must end after it starts.", nameof(end));
         }
 
-        // Seeking before -i is fast, and exact once the frames are decoded and re-encoded.
-        List<string> args = [.. Start(), "-ss", ClipTime.Seconds(start), "-i", input, "-t", ClipTime.Seconds(end - start)];
+        // Seeking before -i is fast, and exact once the frames are decoded and re-encoded. The source's
+        // chapters mean nothing in a cut and would become a data track, so they are left out.
+        List<string> args = [.. Start(), "-ss", ClipTime.Seconds(start), "-i", input, "-t", ClipTime.Seconds(end - start), "-map_chapters", "-1", "-dn"];
         if (mode == CutMode.Fast)
         {
             args.AddRange(["-map", "0:v:0?", "-map", "0:a?", "-c", "copy", "-avoid_negative_ts", "make_zero"]);

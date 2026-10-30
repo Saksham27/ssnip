@@ -152,16 +152,20 @@
                         </Grid>
 
                         <Expander Margin="0,12,0,0" Header="Chapters" Visibility="{Binding HasChapters, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <ItemsControl ItemsSource="{Binding Info.Chapters}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,2">
-                                            <TextBlock Width="64" FontFamily="Consolas" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Start, StringFormat={}{0:h\\:mm\\:ss}}" />
-                                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding Chapters}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ChapterRowViewModel}">
+                                            <DockPanel Margin="0,2">
+                                                <CheckBox MinWidth="0" Margin="0,0,6,0" DockPanel.Dock="Left" IsChecked="{Binding IsSelected}" />
+                                                <TextBlock Width="72" VerticalAlignment="Center" DockPanel.Dock="Left" FontFamily="Consolas" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding StartText}" />
+                                                <TextBlock VerticalAlignment="Center" Text="{Binding Chapter.Title}" TextTrimming="CharacterEllipsis" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <ui:Button Margin="0,8,0,0" Command="{Binding DownloadTickedChaptersCommand}" Content="Download ticked chapters as clips" Icon="{ui:SymbolIcon Cut24}" />
+                            </StackPanel>
                         </Expander>
                         <Expander Margin="0,8,0,0" Header="Description">
                             <TextBox
@@ -184,6 +188,7 @@
                                     Command="{Binding DownloadCommand}"
                                     Content="{Binding DownloadText}"
                                     Icon="{ui:SymbolIcon ArrowDownload24}" />
+                                <ui:Button Margin="8,0,0,0" Command="{Binding ClipCommand}" Content="Clip" Icon="{ui:SymbolIcon Cut24}" ToolTip="Mark clips on a fast preview, then download only those at full quality" />
                                 <ui:Button Margin="8,0,0,0" Command="{Binding ToggleCommandCommand}" Content="Show command" Icon="{ui:SymbolIcon Code24}" />
                                 <ui:Button Margin="8,0,0,0" Command="{Binding OpenQueueCommand}" Content="Open queue" Icon="{ui:SymbolIcon TextBulletListLtr24}" />
                                 <ui:Button
