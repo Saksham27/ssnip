@@ -1,38 +1,52 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using SSnip.App.Services;
+using SSnip.Core;
 using SSnip.Core.Downloads;
 using SSnip.Core.Formatting;
 using SSnip.Core.Media;
+using SSnip.Core.Queue;
 using SSnip.Core.Settings;
 
 namespace SSnip.App.ViewModels;
 
 /// <summary>
-/// Home: paste a link, see what it is, pick a preset or exact formats, download it.
-/// Phase 1 runs one download at a time; the persistent queue arrives in Phase 2.
+/// Home: paste a link, see what it is, pick a preset or exact formats and extras, and send it to
+/// the queue. A single video's progress shows here too; playlists and channels list their videos
+/// to pick from.
 /// </summary>
 public sealed partial class HomeViewModel : ObservableObject
 {
     private readonly IYtDlpService _ytDlp;
+    private readonly JobQueue _queue;
+    private readonly QueueViewModel _queueView;
     private readonly ISettingsStore _settings;
     private readonly IDialogService _dialogs;
+    private readonly AppPaths _paths;
     private readonly ILogger<HomeViewModel> _logger;
     private string? _lastClipboardLink;
     private string? _fetchedLink;
     private bool _outputDirectoryChosen;
+    private bool _switchingTab;
 
-    public HomeViewModel(IYtDlpService ytDlp, ISettingsStore settings, IDialogService dialogs, ILogger<HomeViewModel> logger)
+    public HomeViewModel(IYtDlpService ytDlp, JobQueue queue, QueueViewModel queueView, ISettingsStore settings, IDialogService dialogs, AppPaths paths, ILogger<HomeViewModel> logger)
     {
         _ytDlp = ytDlp;
+        _queue = queue;
+        _queueView = queueView;
         _settings = settings;
         _dialogs = dialogs;
+        _paths = paths;
         _logger = logger;
         SelectedPreset = Presets[0];
+        SelectedSubtitleMode = SubtitleModes[0];
+        SelectedChannelTab = ChannelTabChoices[0];
         OutputDirectory = DefaultOutputDirectory(settings.Current);
+        SubtitleLanguagesText = settings.Current.SubtitleLanguages;
         settings.Changed += (_, s) =>
         {
             if (!_outputDirectoryChosen)
@@ -59,11 +73,33 @@ public sealed partial class HomeViewModel : ObservableObject
 
     public IReadOnlyList<string> SortChips { get; } = ["res:2160", "res:1440", "res:1080", "res:720", "fps", "vcodec:h264", "vcodec:vp9", "vcodec:av01", "acodec:aac", "+size"];
 
+    public IReadOnlyList<SubtitleModeOption> SubtitleModes { get; } =
+    [
+        new(SubtitleMode.Srt, "Separate .srt files"),
+        new(SubtitleMode.Embed, "Embedded in the video"),
+        new(SubtitleMode.SrtAndEmbed, "Both"),
+    ];
+
+    public IReadOnlyList<ChannelTabOption> ChannelTabChoices { get; } =
+    [
+        new(ChannelTab.Videos, "Videos"),
+        new(ChannelTab.Shorts, "Shorts"),
+        new(ChannelTab.Live, "Live"),
+    ];
+
+    public IReadOnlyList<SponsorBlockCategoryViewModel> SponsorBlockCategories { get; } = SponsorBlockCategoryViewModel.FootageDefaults();
+
     public ObservableCollection<FormatRow> Formats { get; } = [];
 
     public ObservableCollection<FormatChoice> VideoChoices { get; } = [];
 
     public ObservableCollection<FormatChoice> AudioChoices { get; } = [];
+
+    /// <summary>Every entry of a playlist or channel.</summary>
+    public List<PlaylistEntryViewModel> AllEntries { get; } = [];
+
+    /// <summary>The entries that pass the filters.</summary>
+    public ObservableCollection<PlaylistEntryViewModel> Entries { get; } = [];
 
     // ---- Input and info ----
 
@@ -71,7 +107,7 @@ public sealed partial class HomeViewModel : ObservableObject
     public partial string InputText { get; set; } = "";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasInfo), nameof(InfoKindText), nameof(DurationText), nameof(UploadDateText), nameof(ViewsText), nameof(SubtitlesText), nameof(HasChapters), nameof(FilenamePreview), nameof(IsDownloadable))]
+    [NotifyPropertyChangedFor(nameof(HasInfo), nameof(InfoKindText), nameof(DurationText), nameof(UploadDateText), nameof(ViewsText), nameof(SubtitlesText), nameof(HasChapters), nameof(FilenamePreview), nameof(IsDownloadable), nameof(IsPlaylist), nameof(IsChannelWithTabs), nameof(IsLive), nameof(IsUpcoming), nameof(DownloadText))]
     [NotifyCanExecuteChangedFor(nameof(DownloadCommand))]
     public partial MediaInfo? Info { get; private set; }
 
@@ -81,15 +117,38 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     public partial string? FetchError { get; private set; }
 
-    /// <summary>Why something cannot be done yet, for example a playlist before Phase 2.</summary>
     [ObservableProperty]
     public partial string? Notice { get; private set; }
 
+    /// <summary>Links pasted together, beyond the one shown; "Add all to queue" sends them with the current settings.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPendingLinks), nameof(AddLinksText))]
+    public partial IReadOnlyList<string> PendingLinks { get; private set; } = [];
+
+    public bool HasPendingLinks => PendingLinks.Count > 1;
+
+    public string AddLinksText => $"Add all {PendingLinks.Count} links to the queue";
+
     public bool HasInfo => Info is not null;
 
-    public bool IsDownloadable => Info?.Kind == MediaKind.Video;
+    public bool IsDownloadable => Info?.IsSingleVideo == true;
+
+    public bool IsPlaylist => Info?.Kind is MediaKind.Playlist or MediaKind.Channel;
+
+    public bool IsChannelWithTabs => Info?.Kind == MediaKind.Channel && _fetchedLink is not null && ChannelTabs.IsChannel(_fetchedLink);
+
+    public bool IsLive => Info?.Kind is MediaKind.Live or MediaKind.Upcoming;
+
+    public bool IsUpcoming => Info?.Kind == MediaKind.Upcoming;
 
     public bool HasChapters => Info?.Chapters.Count > 0;
+
+    public string DownloadText => Info?.Kind switch
+    {
+        MediaKind.Live => "Record",
+        MediaKind.Upcoming => "Record when it starts",
+        _ => "Download",
+    };
 
     public string InfoKindText => Info?.Kind switch
     {
@@ -151,7 +210,6 @@ public sealed partial class HomeViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(DownloadCommand))]
     public partial string SortString { get; set; } = "";
 
-    /// <summary>Clicking a table row picks it as the video or audio part.</summary>
     [ObservableProperty]
     public partial FormatRow? SelectedFormatRow { get; set; }
 
@@ -203,39 +261,95 @@ public sealed partial class HomeViewModel : ObservableObject
         ? ""
         : FilenameTemplatePreview.Render(FilenameTemplate, Info, ExpectedExtension());
 
-    // ---- Job ----
+    // ---- Extras: subtitles, metadata, SponsorBlock ----
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsJobVisible), nameof(IsRunning), nameof(IsDone))]
-    public partial JobState? JobState { get; private set; }
+    public partial bool SubtitlesEnabled { get; set; }
 
     [ObservableProperty]
-    public partial string StageText { get; private set; } = "";
+    public partial string SubtitleLanguagesText { get; set; }
 
     [ObservableProperty]
-    public partial double ProgressValue { get; private set; }
+    public partial bool IncludeAutoSubtitles { get; set; } = true;
 
     [ObservableProperty]
-    public partial bool IsProgressIndeterminate { get; private set; }
+    public partial SubtitleModeOption SelectedSubtitleMode { get; set; }
 
     [ObservableProperty]
-    public partial string PercentText { get; private set; } = "";
+    public partial bool EmbedMetadata { get; set; } = true;
 
     [ObservableProperty]
-    public partial string SizeText { get; private set; } = "";
+    public partial bool EmbedChapters { get; set; } = true;
+
+    /// <summary>Off by default: some editors read an embedded cover as a second video stream.</summary>
+    [ObservableProperty]
+    public partial bool EmbedThumbnail { get; set; }
 
     [ObservableProperty]
-    public partial string SpeedText { get; private set; } = "";
+    public partial bool SaveComments { get; set; }
 
     [ObservableProperty]
-    public partial string EtaText { get; private set; } = "";
+    public partial bool SponsorBlockEnabled { get; set; } = true;
+
+    // ---- Live ----
 
     [ObservableProperty]
-    public partial string? JobError { get; private set; }
+    public partial bool LiveFromStart { get; set; }
+
+    // ---- Playlist and channel ----
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(OpenFolderCommand))]
-    public partial string? FinalPath { get; private set; }
+    public partial ChannelTabOption SelectedChannelTab { get; set; }
+
+    [ObservableProperty]
+    public partial string TitleFilter { get; set; } = "";
+
+    [ObservableProperty]
+    public partial double? MinMinutes { get; set; }
+
+    [ObservableProperty]
+    public partial double? MaxMinutes { get; set; }
+
+    [ObservableProperty]
+    public partial string ItemList { get; set; } = "";
+
+    [ObservableProperty]
+    public partial DateTime? DateAfter { get; set; }
+
+    [ObservableProperty]
+    public partial DateTime? DateBefore { get; set; }
+
+    [ObservableProperty]
+    public partial double? MaxDownloads { get; set; }
+
+    [ObservableProperty]
+    public partial string? PlaylistError { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AddSelectedText))]
+    [NotifyCanExecuteChangedFor(nameof(AddSelectedToQueueCommand))]
+    public partial int SelectedCount { get; private set; }
+
+    public string AddSelectedText
+    {
+        get
+        {
+            var count = MaxDownloads is > 0 ? Math.Min(SelectedCount, (int)MaxDownloads.Value) : SelectedCount;
+            return count == 1 ? "Add 1 video to the queue" : $"Add {count} videos to the queue";
+        }
+    }
+
+    public string EntriesSummary => $"{SelectedCount} of {Entries.Count} shown selected · {AllEntries.Count} in total";
+
+    // ---- The job started from Home ----
+
+    /// <summary>The last single video sent to the queue from Home; its progress shows here.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsJobVisible))]
+    public partial JobViewModel? TrackedJob { get; private set; }
+
+    [ObservableProperty]
+    public partial string? DownloadError { get; private set; }
 
     [ObservableProperty]
     public partial string? CommandLine { get; private set; }
@@ -243,19 +357,22 @@ public sealed partial class HomeViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsCommandVisible { get; set; }
 
-    public bool IsJobVisible => JobState is not null;
+    public bool IsJobVisible => TrackedJob is not null;
 
-    public bool IsRunning => JobState is Core.Downloads.JobState.Downloading or Core.Downloads.JobState.PostProcessing;
-
-    public bool IsDone => JobState == Core.Downloads.JobState.Done;
+    /// <summary>Asks the shell to show the Queue screen.</summary>
+    public event EventHandler? OpenQueueRequested;
 
     // ---- Commands ----
+
+    [RelayCommand]
+    private void OpenQueue() => OpenQueueRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task FetchAsync(CancellationToken cancellationToken)
     {
         FetchError = null;
         Notice = null;
+        PlaylistError = null;
 
         var inputs = LinkInputParser.Parse(InputText);
         if (inputs.Count == 0)
@@ -264,36 +381,58 @@ public sealed partial class HomeViewModel : ObservableObject
             return;
         }
 
-        var link = inputs.FirstOrDefault(i => i.IsUrl);
-        if (link is null)
+        var links = inputs.Where(i => i.IsUrl).Select(i => i.Text).ToList();
+        if (links.Count == 0)
         {
             Notice = "That looks like a search. Searching inside SSnip arrives in Phase 5; paste a link for now.";
             return;
         }
 
-        if (inputs.Count > 1)
+        PendingLinks = links;
+        if (links.Count > 1)
         {
-            Notice = $"{inputs.Count} links pasted. Showing the first; queueing several at once arrives with the queue in Phase 2.";
+            Notice = $"{links.Count} links pasted. The first is shown below; add them all to the queue with the current settings, or fetch one at a time.";
         }
 
-        InputText = link.Text;
+        // A bare YouTube channel lists its tabs, not its videos, so open the chosen tab.
+        var link = links[0];
+        if (ChannelTabs.IsChannel(link) && ChannelTabs.TabOf(link) is null)
+        {
+            link = ChannelTabs.UrlFor(link, SelectedChannelTab.Tab)!;
+        }
+        else if (ChannelTabs.TabOf(link) is { } tab && tab != SelectedChannelTab.Tab)
+        {
+            _switchingTab = true;
+            SelectedChannelTab = ChannelTabChoices.First(c => c.Tab == tab);
+            _switchingTab = false;
+        }
+
+        if (links.Count == 1)
+        {
+            InputText = link;
+        }
+
         Info = null;
         ClearFormats();
-        ResetJob();
+        ClearEntries();
         IsFetching = true;
         try
         {
-            var info = await _ytDlp.FetchInfoAsync(link.Text, cancellationToken);
+            var info = await _ytDlp.FetchInfoAsync(link, cancellationToken);
+            _fetchedLink = link;
             Info = info;
-            _fetchedLink = link.Text;
             LoadFormats(info);
-            Notice ??= info.Kind switch
+            LoadEntries(info);
+
+            // Exact formats belong to one video; a playlist uses a preset for every video.
+            if (IsPlaylist)
             {
-                MediaKind.Playlist or MediaKind.Channel => "Downloading playlists and channels arrives in Phase 2. Open a single video from it for now.",
-                MediaKind.Live => "Recording live streams arrives in Phase 2.",
-                MediaKind.Upcoming => "This stream has not started. Waiting for scheduled streams arrives in Phase 2.",
-                _ => null,
-            };
+                IsAdvanced = false;
+            }
+            if (info.Kind == MediaKind.Upcoming)
+            {
+                Notice ??= "This stream has not started. SSnip checks every minute and records once it goes live.";
+            }
         }
         catch (YtDlpException ex)
         {
@@ -313,7 +452,6 @@ public sealed partial class HomeViewModel : ObservableObject
         }
     }
 
-    /// <summary>Ctrl+V outside the link box: paste the clipboard and fetch it.</summary>
     [RelayCommand]
     private async Task PasteAndFetchAsync()
     {
@@ -347,94 +485,129 @@ public sealed partial class HomeViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(IncludeCancelCommand = true, CanExecute = nameof(CanDownload))]
-    private async Task DownloadAsync(CancellationToken cancellationToken)
+    /// <summary>Sends the shown video (or live stream) to the queue and follows its progress here.</summary>
+    [RelayCommand(CanExecute = nameof(CanDownload))]
+    private async Task DownloadAsync()
     {
-        DownloadOptions options;
-        try
+        DownloadError = null;
+        if (!TryBuildOptions(Info?.WebpageUrl ?? InputText, out var options))
         {
-            options = BuildOptions();
-            CommandLine = _ytDlp.DescribeCommand(options);
-        }
-        catch (ArgumentException ex)
-        {
-            JobState = Core.Downloads.JobState.Failed;
-            JobError = ex.Message;
             return;
         }
 
-        var info = Info;
-        ResetJob();
-        JobState = Core.Downloads.JobState.Downloading;
-        StageText = DownloadStageResolver.Describe(DownloadStage.Starting);
-        IsProgressIndeterminate = true;
-
-        // Created on the UI thread, so events from yt-dlp's reader threads are marshalled here in order.
-        var progress = new Progress<YtDlpEvent>(e => OnEvent(e, info));
-        try
-        {
-            var result = await _ytDlp.DownloadAsync(options, progress, cancellationToken);
-            CommandLine = result.CommandLine;
-            if (result.Succeeded)
-            {
-                JobState = Core.Downloads.JobState.Done;
-                FinalPath = result.FilePath;
-                StageText = result.WasSkipped
-                    ? "Already in the folder, so nothing was downloaded. Turn on Overwrite in Options to download it again."
-                    : $"Done in {Display.Duration(result.Duration)}";
-                IsProgressIndeterminate = false;
-                ProgressValue = 100;
-                PercentText = "100%";
-                SpeedText = "";
-                EtaText = "";
-                if (File.Exists(result.FilePath))
-                {
-                    SizeText = Display.Bytes(new FileInfo(result.FilePath!).Length);
-                }
-            }
-            else
-            {
-                Fail(result.Errors.LastOrDefault() ?? $"yt-dlp exited with code {result.ExitCode}.");
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            JobState = Core.Downloads.JobState.Cancelled;
-            StageText = "Cancelled. Partial files are kept, so downloading again resumes.";
-            IsProgressIndeterminate = false;
-            SpeedText = "";
-            EtaText = "";
-        }
-        catch (FileNotFoundException)
-        {
-            Fail("yt-dlp is not installed. Open Settings › Tools to download it.");
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _logger.LogError(ex, "Download failed");
-            Fail(ex.Message);
-        }
+        CommandLine = _ytDlp.DescribeCommand(options);
+        var added = await _queue.AddAsync([new NewJob(options, Info?.Title)]);
+        TrackedJob = _queueView.Upsert(added[0]);
     }
 
     private bool CanDownload() =>
         IsDownloadable && (!IsAdvanced || SelectedVideo?.Format is not null || SelectedAudio?.Format is not null || !string.IsNullOrWhiteSpace(SortString));
 
     [RelayCommand]
+    private async Task AddLinksToQueueAsync()
+    {
+        DownloadError = null;
+        var jobs = new List<NewJob>();
+        foreach (var link in PendingLinks)
+        {
+            if (!TryBuildOptions(link, out var options, useAdvanced: false))
+            {
+                return;
+            }
+
+            jobs.Add(new NewJob(options));
+        }
+
+        await _queue.AddAsync(jobs);
+        Notice = $"Added {jobs.Count} links to the queue. Titles appear in the Queue as each one starts.";
+        PendingLinks = [];
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private async Task AddSelectedToQueueAsync()
+    {
+        DownloadError = null;
+        var chosen = Entries.Where(e => e.IsSelected).ToList();
+        if (MaxDownloads is > 0)
+        {
+            chosen = [.. chosen.Take((int)MaxDownloads.Value)];
+        }
+
+        var jobs = new List<NewJob>(chosen.Count);
+        foreach (var entry in chosen)
+        {
+            if (!TryBuildOptions(entry.Url, out var options, useAdvanced: false))
+            {
+                return;
+            }
+
+            jobs.Add(new NewJob(options, entry.Title));
+        }
+
+        await _queue.AddAsync(jobs);
+        Notice = $"Added {jobs.Count} videos to the queue.";
+    }
+
+    private bool HasSelection() => SelectedCount > 0;
+
+    [RelayCommand]
+    private void SelectAll() => SetSelected(_ => true);
+
+    [RelayCommand]
+    private void SelectNone() => SetSelected(_ => false);
+
+    /// <summary>Selects exactly the items in the item list, such as <c>1:10,15</c>.</summary>
+    [RelayCommand]
+    private void ApplyItemList()
+    {
+        PlaylistError = null;
+        try
+        {
+            var items = PlaylistItems.Parse(ItemList, AllEntries.Count).ToHashSet();
+            foreach (var entry in AllEntries)
+            {
+                entry.IsSelected = items.Contains(entry.Index);
+            }
+        }
+        catch (FormatException ex)
+        {
+            PlaylistError = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelTracked()
+    {
+        if (TrackedJob is not null)
+        {
+            _queue.Cancel(TrackedJob.Id);
+        }
+    }
+
+    [RelayCommand]
+    private void StopTrackedRecording()
+    {
+        if (TrackedJob is not null)
+        {
+            _queue.StopRecording(TrackedJob.Id);
+        }
+    }
+
+    [RelayCommand]
     private void ToggleCommand()
     {
         if (!IsCommandVisible)
         {
-            try
+            if (TrackedJob?.Job.CommandLine is { } running && TrackedJob.IsActive)
+            {
+                CommandLine = running;
+            }
+            else if (Info is not null)
             {
                 // Before a download starts, show what it will run.
-                if (!IsRunning && Info is not null)
-                {
-                    CommandLine = _ytDlp.DescribeCommand(BuildOptions());
-                }
-            }
-            catch (ArgumentException ex)
-            {
-                CommandLine = $"Cannot build the command: {ex.Message}";
+                CommandLine = TryBuildOptions(Info.WebpageUrl ?? InputText, out var options)
+                    ? _ytDlp.DescribeCommand(options)
+                    : $"Cannot build the command: {DownloadError}";
             }
         }
 
@@ -450,10 +623,18 @@ public sealed partial class HomeViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasFinalPath))]
-    private void OpenFolder() => _dialogs.RevealInExplorer(FinalPath!);
-
-    private bool HasFinalPath() => FinalPath is not null;
+    [RelayCommand]
+    private void OpenFolder()
+    {
+        if (TrackedJob?.Job.FilePath is { } path)
+        {
+            _dialogs.RevealInExplorer(path);
+        }
+        else
+        {
+            _dialogs.OpenInExplorer(OutputDirectory);
+        }
+    }
 
     [RelayCommand]
     private void ChangeOutputDirectory()
@@ -484,7 +665,7 @@ public sealed partial class HomeViewModel : ObservableObject
     /// <summary>Called when the app window gets focus, for the "fetch the clipboard" setting.</summary>
     public async Task OnAppActivatedAsync()
     {
-        if (!_settings.Current.FetchClipboardOnFocus || IsFetching || IsRunning)
+        if (!_settings.Current.FetchClipboardOnFocus || IsFetching)
         {
             return;
         }
@@ -531,58 +712,148 @@ public sealed partial class HomeViewModel : ObservableObject
         }
     }
 
-    private void OnEvent(YtDlpEvent e, MediaInfo? info)
+    partial void OnSelectedChannelTabChanged(ChannelTabOption value)
     {
-        switch (e)
+        if (_switchingTab || !IsChannelWithTabs || _fetchedLink is null || ChannelTabs.UrlFor(_fetchedLink, value.Tab) is not { } url)
         {
-            case DownloadProgressEvent p:
-                JobState = Core.Downloads.JobState.Downloading;
-                StageText = DownloadStageResolver.Describe(DownloadStageResolver.FromFileName(p.FileName, info));
-                if (p.Fraction is { } fraction)
-                {
-                    IsProgressIndeterminate = false;
-                    ProgressValue = fraction * 100;
-                    PercentText = Display.Percent(fraction);
-                    SizeText = $"{Display.Bytes(p.DownloadedBytes)} of {(p.IsTotalEstimate ? "~" : "")}{Display.Bytes(p.TotalBytes)}";
-                }
-                else
-                {
-                    IsProgressIndeterminate = true;
-                    PercentText = p.FragmentCount is { } count ? $"fragment {p.FragmentIndex}/{count}" : "";
-                    SizeText = Display.Bytes(p.DownloadedBytes);
-                }
+            return;
+        }
 
-                SpeedText = p.IsFinished ? "" : Display.Speed(p.BytesPerSecond);
-                EtaText = p.IsFinished || p.Eta is null ? "" : $"ETA {Display.Duration(p.Eta)}";
-                break;
+        InputText = url;
+        FetchCommand.Execute(null);
+    }
 
-            case PostProcessEvent { IsStarted: true } pp:
-                JobState = Core.Downloads.JobState.PostProcessing;
-                StageText = DownloadStageResolver.Describe(DownloadStageResolver.FromPostProcessor(pp.PostProcessor));
-                IsProgressIndeterminate = true;
-                SpeedText = "";
-                EtaText = "";
-                break;
+    partial void OnTitleFilterChanged(string value) => ApplyFilter();
+
+    partial void OnMinMinutesChanged(double? value) => ApplyFilter();
+
+    partial void OnMaxMinutesChanged(double? value) => ApplyFilter();
+
+    partial void OnMaxDownloadsChanged(double? value) => OnPropertyChanged(nameof(AddSelectedText));
+
+    private void ApplyFilter()
+    {
+        var filter = new PlaylistFilter(
+            TitleFilter,
+            MinMinutes is > 0 ? TimeSpan.FromMinutes(MinMinutes.Value) : null,
+            MaxMinutes is > 0 ? TimeSpan.FromMinutes(MaxMinutes.Value) : null);
+
+        PlaylistError = filter.Validate();
+        Entries.Clear();
+        foreach (var entry in AllEntries.Where(e => PlaylistError is not null || filter.Matches(e.Entry)))
+        {
+            Entries.Add(entry);
+        }
+
+        UpdateSelectedCount();
+    }
+
+    private void SetSelected(Func<PlaylistEntryViewModel, bool> selected)
+    {
+        foreach (var entry in Entries)
+        {
+            entry.IsSelected = selected(entry);
         }
     }
 
-    private DownloadOptions BuildOptions()
+    private void UpdateSelectedCount()
     {
-        var url = Info?.WebpageUrl ?? InputText;
-        return new DownloadOptions
-        {
-            Url = url,
-            OutputDirectory = OutputDirectory,
-            Preset = IsAdvanced ? FormatPreset.Custom : SelectedPreset.Preset,
-            Custom = IsAdvanced ? new FormatSelection(SelectedVideo?.Format?.FormatId, SelectedAudio?.Format?.FormatId, SortString) : null,
-            FilenameTemplate = FilenameTemplate,
-            MergeContainer = SelectedContainer == "Automatic" ? null : SelectedContainer,
-            AudioFormat = SelectedAudioFormat,
-            Overwrite = Overwrite,
-            RateLimit = string.IsNullOrWhiteSpace(RateLimit) ? null : RateLimit,
-            ConcurrentFragments = ConcurrentFragments,
-        };
+        SelectedCount = Entries.Count(e => e.IsSelected);
+        OnPropertyChanged(nameof(EntriesSummary));
     }
+
+    private void OnEntryChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlaylistEntryViewModel.IsSelected))
+        {
+            UpdateSelectedCount();
+        }
+    }
+
+    private void LoadEntries(MediaInfo info)
+    {
+        var index = 1;
+        foreach (var entry in info.Entries)
+        {
+            var row = new PlaylistEntryViewModel(index++, entry);
+            row.PropertyChanged += OnEntryChanged;
+            AllEntries.Add(row);
+        }
+
+        ApplyFilter();
+    }
+
+    private void ClearEntries()
+    {
+        foreach (var entry in AllEntries)
+        {
+            entry.PropertyChanged -= OnEntryChanged;
+        }
+
+        AllEntries.Clear();
+        Entries.Clear();
+        UpdateSelectedCount();
+    }
+
+    /// <summary>Builds the options for one link from everything on the page; reports a problem in <see cref="DownloadError"/>.</summary>
+    private bool TryBuildOptions(string url, out DownloadOptions options, bool useAdvanced = true)
+    {
+        options = null!;
+        var advanced = useAdvanced && IsAdvanced && IsDownloadable;
+        var preset = advanced ? FormatPreset.Custom : SelectedPreset.Preset;
+        try
+        {
+            var languages = SubtitleLanguagesText.Split([',', ' ', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var sponsorBlock = SponsorBlockEnabled
+                ? new SponsorBlockOptions(
+                    [.. SponsorBlockCategories.Where(c => c.Action == SponsorBlockAction.Remove).Select(c => c.Category)],
+                    [.. SponsorBlockCategories.Where(c => c.Action == SponsorBlockAction.Mark).Select(c => c.Category)])
+                : null;
+
+            options = new DownloadOptions
+            {
+                Url = url,
+                OutputDirectory = OutputDirectory,
+                Preset = preset,
+                Custom = advanced ? new FormatSelection(SelectedVideo?.Format?.FormatId, SelectedAudio?.Format?.FormatId, SortString) : null,
+                FilenameTemplate = FilenameTemplate,
+                MergeContainer = SelectedContainer == "Automatic" || preset == FormatPreset.AudioOnly ? null : SelectedContainer,
+                AudioFormat = SelectedAudioFormat,
+                Overwrite = Overwrite,
+                RateLimit = string.IsNullOrWhiteSpace(RateLimit) ? null : RateLimit,
+                ConcurrentFragments = ConcurrentFragments,
+                Subtitles = SubtitlesEnabled && SubtitlePicker.Pick(languages, IsShownVideo(url) ? Info!.Subtitles : [], IncludeAutoSubtitles) is { } language
+                    ? new SubtitleOptions([language], IncludeAutoSubtitles, preset == FormatPreset.AudioOnly ? SubtitleMode.Srt : SelectedSubtitleMode.Mode)
+                    : null,
+                EmbedMetadata = EmbedMetadata,
+                EmbedChapters = EmbedChapters,
+                EmbedThumbnail = EmbedThumbnail,
+                InfoJsonDirectory = _paths.InfoJson,
+                MaxComments = SaveComments ? 200 : null,
+                SponsorBlock = sponsorBlock,
+                DateAfter = IsPlaylist && DateAfter is { } after ? DateOnly.FromDateTime(after) : null,
+                DateBefore = IsPlaylist && DateBefore is { } before ? DateOnly.FromDateTime(before) : null,
+                Live = Info?.Kind switch
+                {
+                    MediaKind.Live when url == (Info.WebpageUrl ?? InputText) => new LiveOptions(LiveFromStart),
+                    MediaKind.Upcoming when url == (Info.WebpageUrl ?? InputText) => new LiveOptions(LiveFromStart, WaitForVideoSeconds: 60),
+                    _ => null,
+                },
+            };
+
+            // Validates every option the same way the job will.
+            _ = YtDlpArgsBuilder.Build(options);
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            DownloadError = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>True when <paramref name="url"/> is the single video whose info is shown, so its subtitle tracks are known.</summary>
+    private bool IsShownVideo(string url) => IsDownloadable && url == (Info!.WebpageUrl ?? InputText);
 
     private string ExpectedExtension()
     {
@@ -640,29 +911,6 @@ public sealed partial class HomeViewModel : ObservableObject
         SelectedVideo = null;
         SelectedAudio = null;
         SelectedFormatRow = null;
-    }
-
-    private void ResetJob()
-    {
-        JobState = null;
-        JobError = null;
-        FinalPath = null;
-        StageText = "";
-        ProgressValue = 0;
-        PercentText = "";
-        SizeText = "";
-        SpeedText = "";
-        EtaText = "";
-    }
-
-    private void Fail(string message)
-    {
-        JobState = Core.Downloads.JobState.Failed;
-        JobError = message;
-        StageText = "Failed";
-        IsProgressIndeterminate = false;
-        SpeedText = "";
-        EtaText = "";
     }
 
     private static string DefaultOutputDirectory(AppSettings settings) =>

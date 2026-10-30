@@ -36,27 +36,35 @@ public sealed partial class YtDlpService(IProcessRunner processRunner, ILogger<Y
         }
     }
 
-    public async Task<DownloadResult> DownloadAsync(DownloadOptions options, IProgress<YtDlpEvent>? events = null, CancellationToken cancellationToken = default)
+    public async Task<DownloadResult> DownloadAsync(
+        DownloadOptions options,
+        IProgress<YtDlpEvent>? events = null,
+        CancellationToken cancellationToken = default,
+        IProgress<OutputLine>? output = null,
+        CancellationToken stop = default)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         var request = Request(options);
         var commandLine = processRunner.Describe(request).CommandLine;
         string? finalPath = null;
+        string? lastDownloadPath = null;
         var sawProgress = false;
         var errors = new List<string>();
 
         // Called on the process runner's reader threads; events are forwarded as they arrive.
-        var output = new SynchronousProgress<OutputLine>(line =>
+        var lines = new SynchronousProgress<OutputLine>(line =>
         {
+            output?.Report(line);
             var parsed = YtDlpOutputParser.Parse(line);
             switch (parsed)
             {
                 case FinalFileEvent file:
                     finalPath = file.Path;
                     break;
-                case DownloadProgressEvent { IsAlreadyDownloaded: false }:
+                case DownloadProgressEvent { IsAlreadyDownloaded: false } progress:
                     sawProgress = true;
+                    lastDownloadPath = progress.FileName ?? lastDownloadPath;
                     break;
                 case ErrorEvent error:
                     lock (errors)
@@ -75,9 +83,10 @@ public sealed partial class YtDlpService(IProcessRunner processRunner, ILogger<Y
 
         Directory.CreateDirectory(options.OutputDirectory);
         var stopwatch = Stopwatch.StartNew();
-        var result = await processRunner.RunAsync(request, output, cancellationToken).ConfigureAwait(false);
+        var result = await processRunner.RunAsync(request, lines, cancellationToken, stop).ConfigureAwait(false);
 
-        if (result.Succeeded && finalPath is null && errors.Count == 0)
+        // A date filter that rejects the video also ends with no file and no error.
+        if (result.Succeeded && finalPath is null && errors.Count == 0 && !options.HasDateFilter)
         {
             errors.Add("yt-dlp finished without reporting a file.");
         }
@@ -85,7 +94,7 @@ public sealed partial class YtDlpService(IProcessRunner processRunner, ILogger<Y
         // An existing file is skipped quietly: yt-dlp prints its path with no real progress, at most a
         // "finished" line without an elapsed time.
         var wasSkipped = result.Succeeded && finalPath is not null && !sawProgress;
-        return new DownloadResult(result.ExitCode, commandLine, finalPath, errors, stopwatch.Elapsed, wasSkipped);
+        return new DownloadResult(result.ExitCode, commandLine, finalPath, errors, stopwatch.Elapsed, wasSkipped, result.WasInterrupted, lastDownloadPath);
     }
 
     public string DescribeCommand(DownloadOptions options) => processRunner.Describe(Request(options)).CommandLine;

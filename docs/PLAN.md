@@ -442,20 +442,20 @@ Solution and projects, DI host, Serilog, settings file, `ProcessRunner`, depende
 
 URL input, `-J` info panel, presets, advanced format table, `YtDlpArgsBuilder`, progress parsing, cancel, Show command, open folder.
 
-- [ ] A public YouTube video downloads at Editor-safe 1080p with a live progress bar, speed and ETA
-- [ ] Advanced mode lists all formats and downloads a chosen video + audio pair
-- [ ] Cancel stops yt-dlp and ffmpeg and leaves no zombie processes
-- [ ] A video with a Hindi title saves with the correct filename
-- [ ] Show command displays the exact arguments used
+- [x] A public YouTube video downloads at Editor-safe 1080p with a live progress bar, speed and ETA
+- [x] Advanced mode lists all formats and downloads a chosen video + audio pair
+- [x] Cancel stops yt-dlp and ffmpeg and leaves no zombie processes
+- [x] A video with a Hindi title saves with the correct filename
+- [x] Show command displays the exact arguments used
 
 ### Phase 2: Queue, bulk and extras
 
 SQLite, persistent queue, concurrency, pause/resume/retry, toasts, taskbar progress, when-finished option, playlists and channels with selection and filters, audio extraction, subtitles, metadata, SponsorBlock, live recording.
 
-- [ ] 10 jobs queued, 2 run at a time, and the queue survives closing and reopening the app
-- [ ] Select 5 items from a playlist and download only those
-- [ ] Audio-only WAV, SRT subtitles and SponsorBlock removal all work on one test video
-- [ ] "Sleep when finished" puts the PC to sleep after the last job
+- [x] 10 jobs queued, 2 run at a time, and the queue survives closing and reopening the app
+- [x] Select 5 items from a playlist and download only those
+- [x] Audio-only WAV, SRT subtitles and SponsorBlock removal all work on one test video
+- [x] "Sleep when finished" puts the PC to sleep after the last job
 
 ### Phase 3: Clipping
 

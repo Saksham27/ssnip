@@ -17,7 +17,9 @@ public sealed record DownloadProgressEvent(
     string? FileName,
     int? FragmentIndex,
     int? FragmentCount,
-    TimeSpan? Elapsed = null) : YtDlpEvent
+    TimeSpan? Elapsed = null,
+    string? VideoCodec = null,
+    string? AudioCodec = null) : YtDlpEvent
 {
     public bool IsFinished => Status == "finished";
 
@@ -35,6 +37,9 @@ public sealed record PostProcessEvent(string PostProcessor, bool IsStarted) : Yt
 
 /// <summary>The final file path, printed after yt-dlp moves the file into place.</summary>
 public sealed record FinalFileEvent(string Path) : YtDlpEvent;
+
+/// <summary>The title, printed just before the download starts.</summary>
+public sealed record TitleEvent(string Title) : YtDlpEvent;
 
 public sealed record ErrorEvent(string Message) : YtDlpEvent;
 
@@ -63,6 +68,12 @@ public static class YtDlpOutputParser
             return path.Length > 0 ? new FinalFileEvent(path) : null;
         }
 
+        if (text.StartsWith(YtDlpArgsBuilder.TitlePrefix, StringComparison.Ordinal))
+        {
+            var title = text[YtDlpArgsBuilder.TitlePrefix.Length..].Trim();
+            return title.Length > 0 ? new TitleEvent(title) : null;
+        }
+
         if (text.StartsWith("ERROR: ", StringComparison.Ordinal))
         {
             return new ErrorEvent(text["ERROR: ".Length..].Trim());
@@ -76,8 +87,25 @@ public static class YtDlpOutputParser
         return null;
     }
 
-    private static DownloadProgressEvent? ParseProgress(string json)
+    private static DownloadProgressEvent? ParseProgress(string text)
     {
+        // "vcodec|acodec {json}"; a bare "{json}" is still accepted.
+        string? videoCodec = null, audioCodec = null;
+        var json = text;
+        if (!text.StartsWith('{'))
+        {
+            var space = text.IndexOf(' ', StringComparison.Ordinal);
+            string[] codecs = space < 0 ? [] : text[..space].Split('|');
+            if (codecs.Length != 2)
+            {
+                return null;
+            }
+
+            videoCodec = Codec(codecs[0]);
+            audioCodec = Codec(codecs[1]);
+            json = text[(space + 1)..];
+        }
+
         try
         {
             using var document = JsonDocument.Parse(json);
@@ -102,13 +130,18 @@ public static class YtDlpOutputParser
                 String(p, "filename") ?? String(p, "tmpfilename"),
                 (int?)Long(p, "fragment_index"),
                 (int?)Long(p, "fragment_count"),
-                elapsed is >= 0 ? TimeSpan.FromSeconds(elapsed.Value) : null);
+                elapsed is >= 0 ? TimeSpan.FromSeconds(elapsed.Value) : null,
+                videoCodec,
+                audioCodec);
         }
         catch (JsonException)
         {
             return null;
         }
     }
+
+    /// <summary>yt-dlp prints <c>none</c> for a missing stream and <c>NA</c> for an unknown field.</summary>
+    private static string? Codec(string value) => value is "" or "none" or "NA" ? null : value;
 
     private static PostProcessEvent? ParsePostProcess(string json)
     {

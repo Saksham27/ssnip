@@ -13,7 +13,9 @@ namespace SSnip.Infrastructure.Processes;
 /// </summary>
 public sealed partial class ProcessRunner(AppPaths paths, ILogger<ProcessRunner> logger) : IProcessRunner
 {
-    public async Task<ProcessResult> RunAsync(ProcessRequest request, IProgress<OutputLine>? output = null, CancellationToken cancellationToken = default)
+    private static readonly TimeSpan InterruptGrace = TimeSpan.FromMinutes(1);
+
+    public async Task<ProcessResult> RunAsync(ProcessRequest request, IProgress<OutputLine>? output = null, CancellationToken cancellationToken = default, CancellationToken interrupt = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -40,11 +42,19 @@ public sealed partial class ProcessRunner(AppPaths paths, ILogger<ProcessRunner>
         LogStarting(plan.CommandLine);
         var started = DateTimeOffset.Now;
         var stopwatch = Stopwatch.StartNew();
+        // After Ctrl+C the tool gets a minute to finish its file before the tree is killed.
+        using var kill = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var interruptRegistration = interrupt.Register(() => kill.CancelAfter(InterruptGrace));
         try
         {
-            var result = await command.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            var result = await command.ExecuteAsync(kill.Token, interrupt).ConfigureAwait(false);
             LogFinished(Path.GetFileName(plan.ExecutablePath), result.ExitCode, stopwatch.Elapsed);
-            return new ProcessResult(result.ExitCode, plan.CommandLine, started, stopwatch.Elapsed);
+            return new ProcessResult(result.ExitCode, plan.CommandLine, started, stopwatch.Elapsed, interrupt.IsCancellationRequested);
+        }
+        catch (OperationCanceledException) when (interrupt.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            LogInterrupted(Path.GetFileName(plan.ExecutablePath), stopwatch.Elapsed);
+            return new ProcessResult(-1, plan.CommandLine, started, stopwatch.Elapsed, WasInterrupted: true);
         }
         catch (OperationCanceledException)
         {
@@ -64,4 +74,7 @@ public sealed partial class ProcessRunner(AppPaths paths, ILogger<ProcessRunner>
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Tool} cancelled after {Elapsed}; process tree killed")]
     private partial void LogCancelled(string tool, TimeSpan elapsed);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "{Tool} stopped with Ctrl+C after {Elapsed}")]
+    private partial void LogInterrupted(string tool, TimeSpan elapsed);
 }

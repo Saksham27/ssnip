@@ -14,7 +14,8 @@ public enum OutputStream
 public sealed record OutputLine(OutputStream Stream, string Text);
 
 /// <summary>The outcome of a finished process. <see cref="CommandLine"/> is the exact command, for "Show command".</summary>
-public sealed record ProcessResult(int ExitCode, string CommandLine, DateTimeOffset StartTime, TimeSpan Duration)
+/// <param name="WasInterrupted">Stopped with Ctrl+C on request; the exit code is then not known and is -1.</param>
+public sealed record ProcessResult(int ExitCode, string CommandLine, DateTimeOffset StartTime, TimeSpan Duration, bool WasInterrupted = false)
 {
     public bool Succeeded => ExitCode == 0;
 }

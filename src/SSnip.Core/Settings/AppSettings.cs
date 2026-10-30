@@ -24,6 +24,12 @@ public sealed record AppSettings
 
     /// <summary>When the app gets focus, fetch a link found on the clipboard.</summary>
     public bool FetchClipboardOnFocus { get; init; }
+
+    /// <summary>Queue jobs that run at once, 1 to 5.</summary>
+    public int MaxConcurrentDownloads { get; init; } = Queue.JobScheduler.DefaultConcurrency;
+
+    /// <summary>Subtitle languages picked by default, in order, as typed: "en, hi". A string keeps the record's equality simple.</summary>
+    public string SubtitleLanguages { get; init; } = string.Join(", ", Downloads.SubtitleOptions.DefaultLanguages);
 }
 
 public interface ISettingsStore

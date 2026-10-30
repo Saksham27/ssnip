@@ -47,6 +47,10 @@ public partial class App : Application
                 }
             }
 
+            // The stored concurrency applies before the first job starts.
+            services.GetRequiredService<QueueViewModel>().Initialize();
+            await services.StartQueueAsync();
+
             var window = services.GetRequiredService<MainWindow>();
             MainWindow = window;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -65,7 +69,16 @@ public partial class App : Application
         if (_host is not null)
         {
             await _host.StopAsync(TimeSpan.FromSeconds(5));
-            _host.Dispose();
+
+            // The queue only supports async disposal.
+            if (_host is IAsyncDisposable asyncHost)
+            {
+                await asyncHost.DisposeAsync();
+            }
+            else
+            {
+                _host.Dispose();
+            }
         }
 
         await Log.CloseAndFlushAsync();
@@ -91,9 +104,12 @@ public partial class App : Application
         builder.Services.AddSerilog();
 
         builder.Services.AddSingleton<IDialogService, DialogService>();
+        builder.Services.AddSingleton<INotificationService, NotificationService>();
+        builder.Services.AddSingleton<IPowerService, PowerService>();
         builder.Services.AddSingleton<PageProvider>();
 
         builder.Services.AddSingleton<ToolsViewModel>();
+        builder.Services.AddSingleton<QueueViewModel>();
         builder.Services.AddSingleton<HomeViewModel>();
         builder.Services.AddSingleton<MainWindowViewModel>();
         builder.Services.AddSingleton<SettingsViewModel>();

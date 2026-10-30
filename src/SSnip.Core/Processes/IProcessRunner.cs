@@ -8,7 +8,12 @@ namespace SSnip.Core.Processes;
 /// </summary>
 public interface IProcessRunner
 {
-    Task<ProcessResult> RunAsync(ProcessRequest request, IProgress<OutputLine>? output = null, CancellationToken cancellationToken = default);
+    /// <param name="interrupt">
+    /// Sends Ctrl+C so the tool can finish its file, for example a live recording, and returns a
+    /// result with <see cref="ProcessResult.WasInterrupted"/>. The tree is killed if it has not exited a
+    /// minute later.
+    /// </param>
+    Task<ProcessResult> RunAsync(ProcessRequest request, IProgress<OutputLine>? output = null, CancellationToken cancellationToken = default, CancellationToken interrupt = default);
 
     /// <summary>The exact executable, arguments and command line <see cref="RunAsync"/> would use.</summary>
     ProcessLaunchPlan Describe(ProcessRequest request);

@@ -46,7 +46,7 @@
 
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
                 <TextBlock FontSize="28" FontWeight="SemiBold" Text="Home" />
-                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Paste or drop a link, check what it is, pick a preset and download. Ctrl+V pastes and fetches, Ctrl+Enter downloads Editor-safe." />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Paste or drop a video, playlist or channel link, pick a preset and send it to the queue. Ctrl+V pastes and fetches, Ctrl+Enter downloads Editor-safe." />
             </StackPanel>
 
             <!--  Link input  -->
@@ -93,6 +93,21 @@
                     IsOpen="{Binding Notice, Converter={StaticResource IsNotNullConverter}, Mode=OneWay}"
                     Message="{Binding Notice}"
                     Severity="Informational" />
+                <StackPanel Margin="0,0,0,12" Orientation="Horizontal" Visibility="{Binding HasPendingLinks, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <ui:Button
+                        Appearance="Primary"
+                        Command="{Binding AddLinksToQueueCommand}"
+                        Content="{Binding AddLinksText}"
+                        Icon="{ui:SymbolIcon AddSquareMultiple24}" />
+                    <ui:Button Margin="8,0,0,0" Command="{Binding OpenQueueCommand}" Content="Open queue" Icon="{ui:SymbolIcon TextBulletListLtr24}" />
+                </StackPanel>
+                <ui:InfoBar
+                    Title="Cannot download"
+                    Margin="0,0,0,12"
+                    IsClosable="False"
+                    IsOpen="{Binding DownloadError, Converter={StaticResource IsNotNullConverter}, Mode=OneWay}"
+                    Message="{Binding DownloadError}"
+                    Severity="Error" />
             </StackPanel>
 
             <Grid Grid.Row="3" Visibility="{Binding HasInfo, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -115,7 +130,7 @@
                                 <TextBlock FontSize="11" Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" Text="{Binding InfoKindText}" />
                             </Border>
                         </StackPanel>
-                        <Grid>
+                        <Grid Visibility="{Binding IsDownloadable, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -160,36 +175,51 @@
                 </ui:Card>
 
                 <StackPanel Grid.Column="2">
-                    <!--  Download and progress  -->
-                    <ui:Card Margin="0,0,0,12" Padding="16">
+                    <!--  Single video or live stream: download and progress  -->
+                    <ui:Card Margin="0,0,0,12" Padding="16" Visibility="{Binding IsDownloadable, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <ui:Button
                                     Appearance="Primary"
                                     Command="{Binding DownloadCommand}"
-                                    Content="Download"
+                                    Content="{Binding DownloadText}"
                                     Icon="{ui:SymbolIcon ArrowDownload24}" />
-                                <ui:Button
-                                    Margin="8,0,0,0"
-                                    Command="{Binding DownloadCancelCommand}"
-                                    Content="Cancel"
-                                    Icon="{ui:SymbolIcon Dismiss24}"
-                                    Visibility="{Binding IsRunning, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                 <ui:Button Margin="8,0,0,0" Command="{Binding ToggleCommandCommand}" Content="Show command" Icon="{ui:SymbolIcon Code24}" />
+                                <ui:Button Margin="8,0,0,0" Command="{Binding OpenQueueCommand}" Content="Open queue" Icon="{ui:SymbolIcon TextBulletListLtr24}" />
                                 <ui:Button
                                     Margin="8,0,0,0"
                                     Command="{Binding OpenFolderCommand}"
                                     Content="Open folder"
                                     Icon="{ui:SymbolIcon FolderOpen24}"
-                                    Visibility="{Binding IsDone, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    Visibility="{Binding TrackedJob.HasFile, Converter={StaticResource BooleanToVisibilityConverter}, FallbackValue=Collapsed}" />
                             </StackPanel>
 
-                            <StackPanel Margin="0,16,0,0" Visibility="{Binding IsJobVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <TextBlock FontWeight="SemiBold" Text="{Binding StageText}" />
+                            <StackPanel Margin="0,12,0,0" Visibility="{Binding IsLive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <CheckBox Content="Record from the start of the stream (otherwise from now)" IsChecked="{Binding LiveFromStart}" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource Label}" Text="Stop recording in the progress below or in the Queue; what was recorded is kept as a playable file." TextWrapping="Wrap" />
+                            </StackPanel>
+
+                            <StackPanel Margin="0,16,0,0" DataContext="{Binding TrackedJob}" Visibility="{Binding DataContext.IsJobVisible, RelativeSource={RelativeSource AncestorType=Page}, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                        <ui:Button
+                                            Command="{Binding DataContext.StopTrackedRecordingCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                            Content="Stop recording"
+                                            Icon="{ui:SymbolIcon RecordStop24}"
+                                            Visibility="{Binding CanStopRecording, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <ui:Button
+                                            Margin="8,0,0,0"
+                                            Command="{Binding DataContext.CancelTrackedCommand, RelativeSource={RelativeSource AncestorType=Page}}"
+                                            Content="Cancel"
+                                            Icon="{ui:SymbolIcon Dismiss24}"
+                                            Visibility="{Binding CanCancel, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding StageText}" TextWrapping="Wrap" />
+                                </DockPanel>
                                 <ProgressBar
                                     Height="6"
                                     Margin="0,8,0,8"
-                                    IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                    IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}"
                                     Maximum="100"
                                     Value="{Binding ProgressValue, Mode=OneWay}" />
                                 <StackPanel Orientation="Horizontal">
@@ -201,16 +231,9 @@
                                 <TextBlock
                                     Margin="0,8,0,0"
                                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                    Text="{Binding FinalPath}"
+                                    Text="{Binding Detail}"
                                     TextWrapping="Wrap"
-                                    Visibility="{Binding FinalPath, Converter={StaticResource IsNotNullToVisibilityConverter}}" />
-                                <ui:InfoBar
-                                    Title="Download failed"
-                                    Margin="0,8,0,0"
-                                    IsClosable="False"
-                                    IsOpen="{Binding JobError, Converter={StaticResource IsNotNullConverter}, Mode=OneWay}"
-                                    Message="{Binding JobError}"
-                                    Severity="Error" />
+                                    Visibility="{Binding Detail, Converter={StaticResource IsNotNullToVisibilityConverter}}" />
                             </StackPanel>
 
                             <StackPanel Margin="0,16,0,0" Visibility="{Binding IsCommandVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -228,11 +251,83 @@
                         </StackPanel>
                     </ui:Card>
 
+                    <!--  Playlist or channel: pick videos  -->
+                    <ui:Card Margin="0,0,0,12" Padding="16" Visibility="{Binding IsPlaylist, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <ui:Button Margin="8,0,0,0" Command="{Binding OpenQueueCommand}" Content="Open queue" DockPanel.Dock="Right" Icon="{ui:SymbolIcon TextBulletListLtr24}" />
+                                <ui:Button
+                                    Appearance="Primary"
+                                    Command="{Binding AddSelectedToQueueCommand}"
+                                    Content="{Binding AddSelectedText}"
+                                    DockPanel.Dock="Right"
+                                    Icon="{ui:SymbolIcon ArrowDownload24}" />
+                                <StackPanel DockPanel.Dock="Right" Margin="0,0,16,0" Orientation="Horizontal" Visibility="{Binding IsChannelWithTabs, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" Text="Tab" />
+                                    <ComboBox Width="120" DisplayMemberPath="Name" ItemsSource="{Binding ChannelTabChoices}" SelectedItem="{Binding SelectedChannelTab}" />
+                                </StackPanel>
+                                <TextBlock Margin="0" VerticalAlignment="Center" Style="{StaticResource SectionTitle}" Text="Videos" />
+                            </DockPanel>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition />
+                                </Grid.RowDefinitions>
+                                <ui:TextBox Grid.Column="0" PlaceholderText="Title contains… or /regex/" Text="{Binding TitleFilter, UpdateSourceTrigger=PropertyChanged, Delay=250}" />
+                                <ui:NumberBox Grid.Column="2" ClearButtonEnabled="False" Minimum="0" PlaceholderText="Min minutes" SpinButtonPlacementMode="Hidden" Value="{Binding MinMinutes}" />
+                                <ui:NumberBox Grid.Column="4" ClearButtonEnabled="False" Minimum="0" PlaceholderText="Max minutes" SpinButtonPlacementMode="Hidden" Value="{Binding MaxMinutes}" />
+
+                                <DockPanel Grid.Row="2" Grid.Column="0">
+                                    <ui:Button Margin="8,0,0,0" Command="{Binding ApplyItemListCommand}" Content="Select items" DockPanel.Dock="Right" />
+                                    <ui:TextBox PlaceholderText="Items, e.g. 1:10,15,20-22" Text="{Binding ItemList, UpdateSourceTrigger=PropertyChanged}" />
+                                </DockPanel>
+                                <DatePicker Grid.Row="2" Grid.Column="2" SelectedDate="{Binding DateAfter}" ToolTip="Only videos uploaded on or after this date (checked as each one downloads)" />
+                                <DatePicker Grid.Row="2" Grid.Column="4" SelectedDate="{Binding DateBefore}" ToolTip="Only videos uploaded on or before this date (checked as each one downloads)" />
+                            </Grid>
+
+                            <DockPanel Margin="0,0,0,8">
+                                <ui:NumberBox Width="150" ClearButtonEnabled="False" DockPanel.Dock="Right" Minimum="1" PlaceholderText="Max downloads" SpinButtonPlacementMode="Hidden" Value="{Binding MaxDownloads}" />
+                                <ui:Button Command="{Binding SelectAllCommand}" Content="Select all" />
+                                <ui:Button Margin="8,0,0,0" Command="{Binding SelectNoneCommand}" Content="Select none" />
+                                <TextBlock Margin="16,0,0,0" VerticalAlignment="Center" Style="{StaticResource Label}" Text="{Binding EntriesSummary}" />
+                            </DockPanel>
+                            <TextBlock Margin="0,0,0,8" Foreground="{DynamicResource SystemFillColorCriticalBrush}" Text="{Binding PlaylistError}" TextWrapping="Wrap" Visibility="{Binding PlaylistError, Converter={StaticResource IsNotNullToVisibilityConverter}}" />
+
+                            <ui:ListView
+                                Height="380"
+                                ItemsSource="{Binding Entries}"
+                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                SelectionMode="Single"
+                                VirtualizingPanel.IsVirtualizing="True">
+                                <ui:ListView.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:PlaylistEntryViewModel}">
+                                        <DockPanel Margin="0,2">
+                                            <CheckBox MinWidth="0" Margin="0,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Left" IsChecked="{Binding IsSelected}" />
+                                            <TextBlock Width="44" VerticalAlignment="Center" DockPanel.Dock="Left" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Index}" />
+                                            <TextBlock Margin="12,0,16,0" VerticalAlignment="Center" DockPanel.Dock="Right" FontFamily="Consolas" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding DurationText}" />
+                                            <TextBlock VerticalAlignment="Center" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ui:ListView.ItemTemplate>
+                            </ui:ListView>
+                            <TextBlock Margin="0,8,0,0" Style="{StaticResource Label}" Text="Each video becomes its own job with the preset and extras below. Upload dates are checked by yt-dlp as each one starts." TextWrapping="Wrap" />
+                        </StackPanel>
+                    </ui:Card>
+
                     <!--  Format selection  -->
                     <ui:Card Margin="0,0,0,12" Padding="16">
                         <StackPanel>
                             <DockPanel Margin="0,0,0,10">
-                                <ui:ToggleSwitch Content="Advanced" DockPanel.Dock="Right" IsChecked="{Binding IsAdvanced}" />
+                                <ui:ToggleSwitch Content="Advanced" DockPanel.Dock="Right" IsChecked="{Binding IsAdvanced}" Visibility="{Binding IsDownloadable, Converter={StaticResource BooleanToVisibilityConverter}}" />
                                 <TextBlock Margin="0" Style="{StaticResource SectionTitle}" Text="Format" />
                             </DockPanel>
 
@@ -336,6 +431,62 @@
                         </StackPanel>
                     </ui:Card>
 
+                    <!--  Subtitles, metadata and SponsorBlock  -->
+                    <ui:Card Margin="0,0,0,12" Padding="16">
+                        <Expander Header="Subtitles, metadata and SponsorBlock">
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Style="{StaticResource SectionTitle}" Text="Subtitles" />
+                                <CheckBox Content="Download subtitles" IsChecked="{Binding SubtitlesEnabled}" />
+                                <Grid Margin="28,8,0,0" IsEnabled="{Binding SubtitlesEnabled}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Margin="0,0,12,8" VerticalAlignment="Center" Text="Languages" />
+                                    <ui:TextBox Grid.Column="1" Width="220" Margin="0,0,0,8" HorizontalAlignment="Left" PlaceholderText="en, hi" Text="{Binding SubtitleLanguagesText, UpdateSourceTrigger=PropertyChanged}" ToolTip="Language codes in priority order, for example en, hi. Only the first one the video has is downloaded: manual subtitles first, then auto-generated captions in the language spoken." />
+                                    <TextBlock Grid.Row="1" Margin="0,0,12,8" VerticalAlignment="Center" Text="Save as" />
+                                    <ComboBox Grid.Row="1" Grid.Column="1" Width="220" Margin="0,0,0,8" HorizontalAlignment="Left" DisplayMemberPath="Name" ItemsSource="{Binding SubtitleModes}" SelectedItem="{Binding SelectedSubtitleMode}" />
+                                    <CheckBox Grid.Row="2" Grid.Column="1" Content="Also take auto-generated captions" IsChecked="{Binding IncludeAutoSubtitles}" />
+                                </Grid>
+
+                                <TextBlock Margin="0,16,0,10" Style="{StaticResource SectionTitle}" Text="Metadata" />
+                                <WrapPanel>
+                                    <CheckBox Margin="0,0,24,8" Content="Embed metadata" IsChecked="{Binding EmbedMetadata}" />
+                                    <CheckBox Margin="0,0,24,8" Content="Embed chapters" IsChecked="{Binding EmbedChapters}" />
+                                    <CheckBox Margin="0,0,24,8" Content="Embed thumbnail" IsChecked="{Binding EmbedThumbnail}" ToolTip="Some editors show an embedded cover as a second video stream" />
+                                    <CheckBox Margin="0,0,24,8" Content="Save description and 200 comments" IsChecked="{Binding SaveComments}" />
+                                </WrapPanel>
+                                <TextBlock Style="{StaticResource Label}" Text="info.json is always saved to SSnip's data folder for the source log, not next to the video." TextWrapping="Wrap" />
+
+                                <DockPanel Margin="0,16,0,10">
+                                    <ui:ToggleSwitch DockPanel.Dock="Right" IsChecked="{Binding SponsorBlockEnabled}" />
+                                    <TextBlock Margin="0" Style="{StaticResource SectionTitle}" Text="SponsorBlock" />
+                                </DockPanel>
+                                <ItemsControl IsEnabled="{Binding SponsorBlockEnabled}" ItemsSource="{Binding SponsorBlockCategories}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="2" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SponsorBlockCategoryViewModel}">
+                                            <DockPanel Margin="0,0,16,8">
+                                                <ComboBox Width="120" DockPanel.Dock="Right" ItemsSource="{x:Static vm:SponsorBlockCategoryViewModel.Actions}" SelectedItem="{Binding Action}" />
+                                                <TextBlock VerticalAlignment="Center" Text="{Binding Name}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Style="{StaticResource Label}" Text="Remove cuts the segment out; Mark adds it as a chapter. Preview proxies only ever mark, so their timestamps match the original." TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                    </ui:Card>
+
                     <!--  Options  -->
                     <ui:Card Margin="0,0,0,12" Padding="16">
                         <Expander Header="Options">
@@ -377,8 +528,6 @@
                             </Grid>
                         </Expander>
                     </ui:Card>
-
-
                 </StackPanel>
             </Grid>
         </Grid>

@@ -16,6 +16,11 @@ public static partial class YtDlpArgsBuilder
 
     public const string FilePrefix = "FSFILE ";
 
+    public const string TitlePrefix = "FSTITLE ";
+
+    /// <summary>info.json files are named by site and id, so one folder can hold every source.</summary>
+    public const string InfoJsonTemplate = "%(extractor)s-%(id)s";
+
     private static readonly string[] Containers = ["mp4", "mkv", "mov", "webm"];
 
     public static IReadOnlyList<string> Build(DownloadOptions options)
@@ -28,8 +33,10 @@ public static partial class YtDlpArgsBuilder
             "--no-playlist",
             "--newline",
             "--progress",
-            "--progress-template", $"download:{ProgressPrefix}%(progress)j",
+            // The codecs of the format being downloaded tell the video part from the audio part.
+            "--progress-template", $"download:{ProgressPrefix}%(info.vcodec)s|%(info.acodec)s %(progress)j",
             "--progress-template", $"postprocess:{PostProcessPrefix}%(progress)j",
+            "--print", $"before_dl:{TitlePrefix}%(title)s",
             "--print", $"after_move:{FilePrefix}%(filepath)s",
             "--windows-filenames",
             "--trim-filenames", Invariant(options.TrimFilenames),
@@ -55,6 +62,12 @@ public static partial class YtDlpArgsBuilder
             args.Add("--download-sections");
             args.Add(section);
         }
+
+        AddSubtitles(args, options.Subtitles);
+        AddMetadata(args, options);
+        AddSponsorBlock(args, options);
+        AddFilters(args, options);
+        AddLive(args, options.Live);
 
         // "--" stops option parsing, so a URL can never be read as an option.
         args.Add("--");
@@ -119,6 +132,118 @@ public static partial class YtDlpArgsBuilder
         }
     }
 
+    private static void AddSubtitles(List<string> args, SubtitleOptions? subtitles)
+    {
+        if (subtitles is null || subtitles.Languages.Count == 0)
+        {
+            return;
+        }
+
+        args.Add("--write-subs");
+        if (subtitles.IncludeAutomatic)
+        {
+            args.Add("--write-auto-subs");
+        }
+
+        args.AddRange(["--sub-langs", string.Join(",", subtitles.Languages.Select(l => l.Trim()))]);
+        args.AddRange(["--convert-subs", "srt"]);
+        if (subtitles.Mode is SubtitleMode.Embed or SubtitleMode.SrtAndEmbed)
+        {
+            args.Add("--embed-subs");
+        }
+
+        // --embed-subs deletes the .srt files after embedding unless told to keep them.
+        if (subtitles.Mode == SubtitleMode.Embed)
+        {
+            args.AddRange(["--compat-options", "no-keep-subs"]);
+        }
+    }
+
+    private static void AddMetadata(List<string> args, DownloadOptions options)
+    {
+        if (options.EmbedMetadata)
+        {
+            args.Add("--embed-metadata");
+        }
+
+        if (options.EmbedThumbnail && !(options.Preset == FormatPreset.AudioOnly && options.AudioFormat == AudioFormat.Wav))
+        {
+            args.Add("--embed-thumbnail");
+        }
+
+        if (options.EmbedChapters)
+        {
+            args.Add("--embed-chapters");
+        }
+
+        if (options.InfoJsonDirectory is { } infoDirectory)
+        {
+            args.AddRange(["--write-info-json", "-P", $"infojson:{infoDirectory}", "-o", $"infojson:{InfoJsonTemplate}"]);
+
+            if (options.MaxComments is { } maxComments)
+            {
+                args.AddRange(["--write-description", "-P", $"description:{infoDirectory}", "-o", $"description:{InfoJsonTemplate}"]);
+                args.AddRange(["--write-comments", "--extractor-args", $"youtube:max_comments={Invariant(maxComments)}"]);
+            }
+        }
+    }
+
+    private static void AddSponsorBlock(List<string> args, DownloadOptions options)
+    {
+        // Live streams have no SponsorBlock segments yet.
+        if (options.SponsorBlock is not { } sponsorBlock || options.Live is not null)
+        {
+            return;
+        }
+
+        // Cutting segments out shifts every later timestamp, so proxies and section downloads, whose
+        // timestamps must match the original video, only ever mark them.
+        var keepsTimeline = options.Preset == FormatPreset.PreviewProxy || options.Sections.Count > 0;
+        IReadOnlyList<string> remove = keepsTimeline ? [] : sponsorBlock.Remove;
+        List<string> mark = [.. sponsorBlock.Mark.Union(keepsTimeline ? sponsorBlock.Remove : []).Except(remove)];
+
+        if (remove.Count > 0)
+        {
+            args.AddRange(["--sponsorblock-remove", string.Join(",", remove)]);
+        }
+
+        if (mark.Count > 0)
+        {
+            args.AddRange(["--sponsorblock-mark", string.Join(",", mark)]);
+        }
+    }
+
+    private static void AddFilters(List<string> args, DownloadOptions options)
+    {
+        if (options.DateAfter is { } after)
+        {
+            args.AddRange(["--dateafter", after.ToString("yyyyMMdd", CultureInfo.InvariantCulture)]);
+        }
+
+        if (options.DateBefore is { } before)
+        {
+            args.AddRange(["--datebefore", before.ToString("yyyyMMdd", CultureInfo.InvariantCulture)]);
+        }
+    }
+
+    private static void AddLive(List<string> args, LiveOptions? live)
+    {
+        if (live is null)
+        {
+            return;
+        }
+
+        if (live.FromStart)
+        {
+            args.Add("--live-from-start");
+        }
+
+        if (live.WaitForVideoSeconds is { } seconds)
+        {
+            args.AddRange(["--wait-for-video", Invariant(seconds)]);
+        }
+    }
+
     private static void AddContainer(List<string> args, string? container)
     {
         if (container is not null)
@@ -168,10 +293,39 @@ public static partial class YtDlpArgsBuilder
         {
             throw new ArgumentException("Retries must be 0 or more and filenames at least 20 characters.", nameof(options));
         }
+
+        if (options.Subtitles is { } subtitles && subtitles.Languages.Any(l => !LanguagePattern().IsMatch(l.Trim())))
+        {
+            throw new ArgumentException("Subtitle languages must be codes such as en, hi or pt-BR.", nameof(options));
+        }
+
+        if (options.SponsorBlock is { } sponsorBlock && sponsorBlock.Remove.Concat(sponsorBlock.Mark).Any(c => !SponsorBlockOptions.Categories.Contains(c)))
+        {
+            throw new ArgumentException("Unknown SponsorBlock category.", nameof(options));
+        }
+
+        if (options.MaxComments is not null && (options.InfoJsonDirectory is null || options.MaxComments < 1))
+        {
+            throw new ArgumentException("Saving comments needs an info folder and a limit of at least 1.", nameof(options));
+        }
+
+        if (options.DateAfter > options.DateBefore)
+        {
+            throw new ArgumentException("The upload date range ends before it starts.", nameof(options));
+        }
+
+        if (options.Live is { WaitForVideoSeconds: < 1 })
+        {
+            throw new ArgumentException("Waiting for a stream must check at least every second.", nameof(options));
+        }
     }
 
     private static string Invariant(int value) => value.ToString(CultureInfo.InvariantCulture);
 
     [GeneratedRegex(@"^\d+(\.\d+)?[KMG]?$", RegexOptions.IgnoreCase)]
     private static partial Regex RateLimitPattern();
+
+    // Codes with an optional region or variant (en, hi, pt-BR, en-orig); no regex or commas from the UI.
+    [GeneratedRegex(@"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$")]
+    private static partial Regex LanguagePattern();
 }

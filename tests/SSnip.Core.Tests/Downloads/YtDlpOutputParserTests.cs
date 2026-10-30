@@ -109,9 +109,30 @@ public class YtDlpOutputParserTests
     }
 
     [Theory]
+    [InlineData("avc1.4D400C|none", "avc1.4D400C", null)]
+    [InlineData("none|mp4a.40.2", null, "mp4a.40.2")]
+    [InlineData("avc1.42001E|mp4a.40.2", "avc1.42001E", "mp4a.40.2")]
+    [InlineData("NA|NA", null, null)]
+    public void Reads_the_codecs_before_the_json(string codecs, string? video, string? audio)
+    {
+        var p = Parse($$"""FSPROG {{codecs}} {"status": "downloading", "downloaded_bytes": 10, "total_bytes": 100}""").ShouldBeOfType<DownloadProgressEvent>();
+
+        p.VideoCodec.ShouldBe(video);
+        p.AudioCodec.ShouldBe(audio);
+        p.Fraction.ShouldBe(0.1);
+    }
+
+    [Fact]
+    public void Parses_the_title_line() =>
+        Parse("FSTITLE जब रोटी सब्जी ｜ Breakfast").ShouldBe(new TitleEvent("जब रोटी सब्जी ｜ Breakfast"));
+
+    [Theory]
     [InlineData("")]
     [InlineData("[download] Destination: x.mp4")]
     [InlineData("FSPROG not json")]
+    [InlineData("FSPROG avc1 {}")]
+    [InlineData("FSPROG a|b|c {}")]
+    [InlineData("FSTITLE  ")]
     [InlineData("FSPROG [1,2]")]
     [InlineData("FSPP {}")]
     [InlineData("FSFILE   ")]

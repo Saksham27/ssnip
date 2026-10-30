@@ -28,7 +28,13 @@ Versions are filled in when each package is added to the solution.
 | Microsoft.Extensions.DependencyInjection.Abstractions | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; service registration in Infrastructure |
 | Microsoft.Extensions.Logging.Abstractions | 10.0.14 | MIT | https://github.com/dotnet/runtime | NuGet; logging interfaces in Infrastructure |
 | CliWrap | 3.10.5 | MIT | https://github.com/Tyrrrz/CliWrap | NuGet; process execution |
-| Microsoft.EntityFrameworkCore.Sqlite | Not yet added | MIT | https://github.com/dotnet/efcore | NuGet; SQLite storage |
+| Microsoft.Toolkit.Uwp.Notifications | 7.1.3 | MIT | https://github.com/CommunityToolkit/WindowsCommunityToolkit | NuGet; Windows toast notifications |
+| Microsoft.Windows.SDK.NET (Windows SDK projection) | Comes with the net10.0-windows10.0.19041.0 target | MIT | https://github.com/microsoft/CsWinRT | .NET SDK; Windows Runtime APIs used by toasts |
+| Microsoft.EntityFrameworkCore.Sqlite (with Microsoft.Data.Sqlite) | 10.0.14 | MIT | https://github.com/dotnet/efcore | NuGet; SQLite storage for the queue and library |
+| Microsoft.EntityFrameworkCore.Design | 10.0.14 | MIT | https://github.com/dotnet/efcore | NuGet, build time only (not shipped); creates migrations |
+| SQLitePCLRaw (bundle_e_sqlite3) | 2.1.13 | Apache 2.0 | https://github.com/ericsink/SQLitePCL.raw | NuGet, via EF Core; native SQLite binding |
+| SQLite | Bundled with SQLitePCLRaw | Public domain | https://sqlite.org/ | Native database engine |
+| dotnet-ef | 10.0.14 | MIT | https://github.com/dotnet/efcore | .NET local tool, development only; runs migrations |
 | Serilog | 4.4.0 | Apache 2.0 | https://github.com/serilog/serilog | NuGet; logging |
 | Serilog.Extensions.Hosting | 10.0.0 | Apache 2.0 | https://github.com/serilog/serilog-extensions-hosting | NuGet; plugs Serilog into the host |
 | Serilog.Sinks.File | 7.0.0 | Apache 2.0 | https://github.com/serilog/serilog-sinks-file | NuGet; rolling log files |

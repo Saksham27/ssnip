@@ -23,7 +23,14 @@ WPF + WPF-UI (dark Fluent theme), CommunityToolkit.Mvvm, Microsoft.Extensions.Ho
 - WPF projects drop `System.IO` and `System.Net.Http` from implicit usings; add them explicitly in `SSnip.App`.
 - Bind read-only view-model properties to `ProgressBar.Value` and similar two-way-by-default properties with `Mode=OneWay`.
 - `Page`s in the navigation frame do not inherit the window foreground; set `Foreground="{DynamicResource TextFillColorPrimaryBrush}"`.
-- Integration tests: `dotnet test --filter Category=Integration` (downloads tools into `%TEMP%\SSnip.IntegrationTests` on first run).
+- Integration tests: `dotnet test --filter Category=Integration` (downloads tools into `%TEMP%\SSnip.IntegrationTests` on first run). Tests in `SSnip.Integration.Tests` without that trait (the SQLite store) need no network and run in CI.
+- Every download goes through `JobQueue` (Core); Home only adds jobs and follows one. Queue events arrive on worker threads and can be out of order: apply them on the UI thread and keep the higher `QueueJob.Revision`.
+- The window's `OnClosing` awaits `JobQueue.ShutdownAsync()` so running jobs are saved as Queued and no yt-dlp or ffmpeg outlives the app; a resumed job runs with `--no-overwrites` so its `.part` files continue.
+- Database changes go through EF Core migrations: `dotnet tool run dotnet-ef migrations add <Name> -p src/SSnip.Infrastructure -s src/SSnip.Infrastructure -o Data/Migrations`. The app migrates on start.
+- `SSnip.App` targets `net10.0-windows10.0.19041.0` for Windows toasts (Microsoft.Toolkit.Uwp.Notifications).
+- `--print` implies `--quiet`, so yt-dlp's own "skipping" messages never appear: a date filter that rejects a video ends with exit 0 and no file, which `YtDlpJobExecutor` reports as a skip.
+- SponsorBlock removal is never applied to preview proxies or section downloads, so their timestamps match the original video.
+- Keep record settings free of lists (`AppSettings` uses value equality); store such values as strings.
 - Never add Claude attribution (Co-Authored-By trailers or "Generated with Claude Code") to commits or PRs.
 - Build command lines as argument lists, never concatenated strings.
 - All process calls are async, cancellable and report progress; never block the UI thread.

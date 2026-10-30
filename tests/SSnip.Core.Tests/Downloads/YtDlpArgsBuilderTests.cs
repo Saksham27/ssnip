@@ -28,9 +28,10 @@ public class YtDlpArgsBuilderTests
         args.ShouldContain("--newline");
         args.ShouldContain("--progress");
         args.ShouldContain("--no-playlist");
-        args.ShouldContain("download:FSPROG %(progress)j");
+        args.ShouldContain("download:FSPROG %(info.vcodec)s|%(info.acodec)s %(progress)j");
         args.ShouldContain("postprocess:FSPP %(progress)j");
-        ValueOf(args, "--print").ShouldBe("after_move:FSFILE %(filepath)s");
+        args.ShouldContain("before_dl:FSTITLE %(title)s");
+        args.ShouldContain("after_move:FSFILE %(filepath)s");
     }
 
     [Fact]
