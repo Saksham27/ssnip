@@ -452,10 +452,10 @@ URL input, `-J` info panel, presets, advanced format table, `YtDlpArgsBuilder`, 
 
 SQLite, persistent queue, concurrency, pause/resume/retry, toasts, taskbar progress, when-finished option, playlists and channels with selection and filters, audio extraction, subtitles, metadata, SponsorBlock, live recording.
 
-- [ ] 10 jobs queued, 2 run at a time, and the queue survives closing and reopening the app
-- [ ] Select 5 items from a playlist and download only those
-- [ ] Audio-only WAV, SRT subtitles and SponsorBlock removal all work on one test video
-- [ ] "Sleep when finished" puts the PC to sleep after the last job
+- [x] 10 jobs queued, 2 run at a time, and the queue survives closing and reopening the app
+- [x] Select 5 items from a playlist and download only those
+- [x] Audio-only WAV, SRT subtitles and SponsorBlock removal all work on one test video
+- [x] "Sleep when finished" puts the PC to sleep after the last job
 
 ### Phase 3: Clipping
 
