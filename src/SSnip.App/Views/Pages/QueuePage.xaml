@@ -1,0 +1,138 @@
+<Page
+    x:Class="SSnip.App.Views.Pages.QueuePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:vm="clr-namespace:SSnip.App.ViewModels"
+    x:Name="Root"
+    Title="Queue"
+    d:DataContext="{d:DesignInstance vm:QueueViewModel}"
+    Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+    mc:Ignorable="d">
+    <Page.Resources>
+        <Style x:Key="RowButton" BasedOn="{StaticResource {x:Type ui:Button}}" TargetType="ui:Button">
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Appearance" Value="Transparent" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Margin="32,24,32,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock FontSize="28" FontWeight="SemiBold" Text="Queue" />
+            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Jobs run in order, a few at a time. The queue is saved, so closing SSnip or restarting the PC continues where it stopped." />
+        </StackPanel>
+
+        <!--  Toolbar  -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,12" LastChildFill="False">
+            <ui:Button Command="{Binding PauseAllCommand}" Content="Pause all" DockPanel.Dock="Left" Icon="{ui:SymbolIcon Pause24}" />
+            <ui:Button Margin="8,0,0,0" Command="{Binding ResumeAllCommand}" Content="Resume all" DockPanel.Dock="Left" Icon="{ui:SymbolIcon Play24}" />
+            <ui:Button Margin="8,0,0,0" Command="{Binding ClearFinishedCommand}" Content="Clear finished" DockPanel.Dock="Left" Icon="{ui:SymbolIcon Broom24}" />
+            <TextBlock Margin="24,0,0,0" VerticalAlignment="Center" DockPanel.Dock="Left" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Summary}" />
+
+            <ComboBox Width="140" DockPanel.Dock="Right" DisplayMemberPath="Name" ItemsSource="{Binding WhenFinishedOptions}" SelectedItem="{Binding SelectedWhenFinished}" />
+            <TextBlock Margin="24,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Right" Text="When the queue finishes" />
+            <ComboBox Width="72" DockPanel.Dock="Right" ItemsSource="{Binding ConcurrencyChoices}" SelectedItem="{Binding Concurrency}" />
+            <TextBlock Margin="0,0,8,0" VerticalAlignment="Center" DockPanel.Dock="Right" Text="Run at once" />
+        </DockPanel>
+
+        <ui:InfoBar
+            Title="Queue finished"
+            Grid.Row="2"
+            Margin="0,0,0,12"
+            IsClosable="False"
+            IsOpen="{Binding IsCountingDown}"
+            Message="{Binding CountdownText}"
+            Severity="Warning">
+            <ui:InfoBar.Content>
+                <ui:Button Command="{Binding CancelCountdownCommand}" Content="Cancel" />
+            </ui:InfoBar.Content>
+        </ui:InfoBar>
+
+        <ui:Card Grid.Row="3" VerticalAlignment="Top" Padding="24" Visibility="{Binding IsEmpty, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="Nothing queued. Fetch a video, playlist or channel on Home and download it, and it shows up here." TextWrapping="Wrap" />
+        </ui:Card>
+
+        <ui:ListView
+            Grid.Row="3"
+            HorizontalContentAlignment="Stretch"
+            ItemsSource="{Binding Jobs}"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            SelectionMode="Single"
+            VirtualizingPanel.IsVirtualizing="True"
+            VirtualizingPanel.ScrollUnit="Pixel"
+            Visibility="{Binding IsEmpty, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+            <ui:ListView.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:JobViewModel}">
+                    <Grid Margin="4,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <DockPanel>
+                                <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" DockPanel.Dock="Right" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding PresetText}" />
+                                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}" />
+                            </DockPanel>
+                            <ProgressBar
+                                Height="4"
+                                Margin="0,6,0,6"
+                                IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}"
+                                Maximum="100"
+                                Value="{Binding ProgressValue, Mode=OneWay}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock MinWidth="180" Margin="0,0,12,0" Text="{Binding StageText}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock MinWidth="60" FontWeight="SemiBold" Text="{Binding PercentText}" />
+                                <TextBlock MinWidth="170" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SizeText}" />
+                                <TextBlock MinWidth="100" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SpeedText}" />
+                                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding EtaText}" />
+                            </StackPanel>
+                            <TextBlock
+                                Margin="0,4,0,0"
+                                FontSize="12"
+                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                Text="{Binding Detail}"
+                                TextTrimming="CharacterEllipsis"
+                                ToolTip="{Binding Detail}"
+                                Visibility="{Binding Detail, Converter={StaticResource IsNotNullToVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                            <ui:Button Command="{Binding DataContext.StopRecordingCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon RecordStop24}" Style="{StaticResource RowButton}" ToolTip="Stop recording and keep the file" Visibility="{Binding CanStopRecording, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ui:Button Command="{Binding DataContext.PauseCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Pause24}" Style="{StaticResource RowButton}" ToolTip="Pause (keeps partial files)" Visibility="{Binding CanPause, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ui:Button Command="{Binding DataContext.ResumeCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Play24}" Style="{StaticResource RowButton}" ToolTip="Resume" Visibility="{Binding CanResume, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ui:Button Command="{Binding DataContext.RetryCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon ArrowClockwise24}" Style="{StaticResource RowButton}" ToolTip="Retry" Visibility="{Binding CanRetry, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ui:Button Command="{Binding DataContext.CancelCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Dismiss24}" Style="{StaticResource RowButton}" ToolTip="Cancel" Visibility="{Binding CanCancel, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                            <ui:Button Command="{Binding DataContext.MoveUpCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon ArrowUp24}" Style="{StaticResource RowButton}" ToolTip="Move up" />
+                            <ui:Button Command="{Binding DataContext.MoveDownCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon ArrowDown24}" Style="{StaticResource RowButton}" ToolTip="Move down" />
+                            <ui:Button Command="{Binding DataContext.OpenFolderCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon FolderOpen24}" Style="{StaticResource RowButton}" ToolTip="Show in folder" />
+                            <ui:Button Command="{Binding DataContext.OpenLogCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon DocumentText24}" Style="{StaticResource RowButton}" ToolTip="Open the job log" />
+                            <ui:Button Command="{Binding DataContext.CopyCommandCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Code24}" Style="{StaticResource RowButton}" ToolTip="Copy the exact command" />
+                            <ui:Button Command="{Binding DataContext.RemoveCommand, ElementName=Root}" CommandParameter="{Binding}" Icon="{ui:SymbolIcon Delete24}" Style="{StaticResource RowButton}" ToolTip="Remove from the queue (files stay on disk)" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ui:ListView.ItemTemplate>
+        </ui:ListView>
+    </Grid>
+</Page>

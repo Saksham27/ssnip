@@ -18,6 +18,9 @@
     WindowCornerPreference="Round"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
+    <ui:FluentWindow.TaskbarItemInfo>
+        <TaskbarItemInfo ProgressState="{Binding Queue.TaskbarState}" ProgressValue="{Binding Queue.TaskbarValue}" />
+    </ui:FluentWindow.TaskbarItemInfo>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -75,7 +78,7 @@
                     VerticalAlignment="Center"
                     DockPanel.Dock="Left"
                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                    Text="{Binding QueueSummary}" />
+                    Text="{Binding Queue.Summary}" />
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <ui:SymbolIcon Margin="0,0,6,0" Symbol="PersonCircle24" />

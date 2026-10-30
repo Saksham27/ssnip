@@ -19,6 +19,12 @@ public interface IDialogService
     string? GetClipboardText();
 
     void SetClipboardText(string text);
+
+    /// <summary>Opens a file with its default app, for example a job log in the text editor.</summary>
+    void OpenFile(string path);
+
+    /// <summary>Asks before something that cannot be undone, such as clearing the queue.</summary>
+    Task<bool> ConfirmAsync(string title, string message, string confirmText);
 }
 
 public sealed class DialogService : IDialogService
@@ -87,5 +93,26 @@ public sealed class DialogService : IDialogService
         catch (System.Runtime.InteropServices.COMException)
         {
         }
+    }
+
+    public void OpenFile(string path)
+    {
+        if (File.Exists(path))
+        {
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+    }
+
+    public async Task<bool> ConfirmAsync(string title, string message, string confirmText)
+    {
+        var box = new Wpf.Ui.Controls.MessageBox
+        {
+            Title = title,
+            Content = message,
+            PrimaryButtonText = confirmText,
+            CloseButtonText = "Cancel",
+        };
+
+        return await box.ShowDialogAsync() == Wpf.Ui.Controls.MessageBoxResult.Primary;
     }
 }

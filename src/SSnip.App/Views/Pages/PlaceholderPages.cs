@@ -36,8 +36,6 @@ public sealed class SearchPage() : PlaceholderPage("Search", "Find footage insid
 
 public sealed class ClipEditorPage() : PlaceholderPage("Clip editor", "Scrub a preview proxy, mark in and out points, and download only those sections at full quality.", "Phase 3");
 
-public sealed class QueuePage() : PlaceholderPage("Queue", "Watch jobs run with progress, pause, resume, retry and the \"when finished\" option.", "Phase 2");
-
 public sealed class LibraryPage() : PlaceholderPage("Library", "Browse every download and clip by project, search transcripts and export credits.", "Phase 4");
 
 public sealed class ChannelsPage() : PlaceholderPage("Channels", "Watched channels and playlists that sync only new uploads.", "Phase 5");
